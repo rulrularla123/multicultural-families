@@ -327,7 +327,7 @@ stateDiagram-v2
 | [B7] | 국가법령정보센터, 시행 2025-01-31, 재한외국인 처우 기본법 제2조, https://www.law.go.kr/LSW/lsSideInfoP.do?docCls=jo&joBrNo=00&joNo=0002&lsiSeq=268701&urlMode=lsScJoRltInfoR | 2-Hyun731-02 |
 | [B8] | 인천광역시, 2024-08-28 업데이트, 가족센터, https://www.incheon.go.kr/welfare/WE0903051 | 4-Hyun731-01 |
 
-[B6]~[B8]은 카드의 "직접 확인"을 Codex가 했고 담당자 원문 재확인이 남아 있다. 팀 확인 2단계에서 직접 열어 보지 않았다면 `[추정]`으로 바꾼다.
+[B6]~[B8]은 2026-10-13 팀원이 원문을 직접 열어 재확인했다.
 
 ---
 

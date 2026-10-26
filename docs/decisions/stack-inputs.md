@@ -10,17 +10,17 @@
 > 5. 정리 담당이 PR로 올립니다. 이 파일은 다음 차시에 `docs/STACK.md`의 "우리 팀 상황"으로 이어집니다.
 > 6. `>`로 시작하는 안내 문장은 지워도 됩니다.
 
-- 작성일:
+- 작성일: 2026-10-26 (틀 준비. 각 줄은 본인이 직접 작성)
 
 ## 팀원별 경험
 
 | 이름 | 직접 써 본 언어·도구 | 그걸로 만들어 본 것 (한 줄) | 써 봤지만 어려웠던 것 | 배워 보고 싶은 것 |
 | --- | --- | --- | --- | --- |
 | 권길현 | Python, FastAPI, TensorFlow, TensorFlow.js, YOLO(Ultralytics), LangGraph, LangChain, CrewAI, Spring, MySQL, PostgreSQL, Pinecone, Chroma | FastAPI·TensorFlow.js로 플로깅 쓰레기를 YOLO로 탐지하는 앱(줍고, 교내 해커톤), TensorFlow로 비윤리적 댓글 분류 모델 | 학습 데이터 클래스 불균형(의류 0.66%)과 과적합 대응 | Kubernetes |
-| | | | | |
-| | | | | |
-| | | | | |
-| | | | | |
+| 김민건 | | | | |
+| 김태후 | | | | |
+| 여철준 | | | | |
+| 이주환 | | | | |
 
 ## 서비스 쪽 조건
 

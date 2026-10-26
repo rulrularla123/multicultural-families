@@ -35,6 +35,12 @@
 | 5 | [docs/interview/mvp-assumptions-questions.md](docs/interview/mvp-assumptions-questions.md) | MVP 가설, 기능 목록, 가정·위험, 질문지, 미팅 준비 | 작성 완료 · 문서 검토 기록·미팅 역할 배정 |
 | 6 | [docs/proposal/README.md](docs/proposal/README.md) | **클라이언트에게 보내는 프로젝트 제안서** (Claude 초안 → 팀 확인 → Word 양식, 완성본 docx·PDF) | ☐ |
 | - | `logs/pre-[GitHub 아이디].md` | 개인 회고 (사람마다 파일 하나) | ☐ |
+| 2-1 | [docs/requirements/user-flows.md](docs/requirements/user-flows.md) | 첫 데모에서 보여줄 핵심 사용자 흐름 (상태 4개 이상) | ☐ |
+| 2-1 | [docs/requirements/backlog.md](docs/requirements/backlog.md) | 스토리와 인수 조건, 필수/선택 | ☐ |
+| 2-1 | [docs/decisions/mvp-scope.md](docs/decisions/mvp-scope.md) | MVP 포함·제외(이유), 제안서(v2)와 다른 점 | ☐ |
+| 2-1 | [docs/decisions/stack-inputs.md](docs/decisions/stack-inputs.md) | 기술 스택을 정하기 전 우리 팀 경험·조건 정리 | ☐ |
+| 2-1 | [docs/team/working-agreement.md](docs/team/working-agreement.md) | 팀 작업 규칙 | ☐ |
+| 2-1 | [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/) | 스토리·버그 이슈 양식 | ☐ |
 
 > 단계가 끝나면 상태 칸을 ☑로 바꾸고 PR로 올립니다.
 

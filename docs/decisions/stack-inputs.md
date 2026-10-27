@@ -1,0 +1,45 @@
+# 기술 스택 준비표 (결정 전에 정리하는 우리 팀 상황)
+
+> **저장 위치:** `docs/decisions/stack-inputs.md`
+
+> **사용 방법**
+> 1. 오늘은 **기술 스택을 정하지 않습니다.** 정하기 전에 필요한 **우리 팀 정보만** 정리합니다. 스택 후보 비교와 결정은 다음 차시(2주차 2일차)에 합니다.
+> 2. **Claude를 쓰지 않습니다.** 팀원이 **직접** 씁니다. Claude에게 먼저 물으면 그럴듯한 기술로 빈칸이 채워집니다.
+> 3. **이름을 들어 본 기술과 직접 써서 뭘 만들어 본 기술을 구분**합니다. "JavaScript를 안다"와 "React로 서비스를 만들어 봤다"는 다릅니다. 모르는 것은 억지로 채우지 않고 `미정`으로 씁니다.
+> 4. 팀원 5명이 **각자 자기 줄**을 채웁니다 (동시에 고치면 충돌하니 블록 3 합류 때 정리 담당이 한 번에 옮기거나, 한 명씩 차례로 입력).
+> 5. 정리 담당이 PR로 올립니다. 이 파일은 다음 차시에 `docs/STACK.md`의 "우리 팀 상황"으로 이어집니다.
+> 6. `>`로 시작하는 안내 문장은 지워도 됩니다.
+
+- 작성일: 2026-10-26 (틀 준비. 각 줄은 본인이 직접 작성)
+
+## 팀원별 경험
+
+| 이름 | 직접 써 본 언어·도구 | 그걸로 만들어 본 것 (한 줄) | 써 봤지만 어려웠던 것 | 배워 보고 싶은 것 |
+| --- | --- | --- | --- | --- |
+| 이주환 | Python, FastAPI, LangChain, LangSmith, pytest, Git·GitHub | FastAPI 장비 지급 가능 조회 API의 경계값 수정·테스트, LangChain 면접 답변 코치 실습 | 기본 테스트가 통과해도 빠지는 경계값 찾기, LLM 최종 출력만으로 입력·프롬프트·파서 중 오류 지점 구분하기 | 상태 전이·권한·LLM 실패의 API 인수 테스트, RAG 근거 평가와 구조화된 출력 검증 |
+| 권길현 | Python, FastAPI, TensorFlow, TensorFlow.js, YOLO(Ultralytics), LangGraph, LangChain, CrewAI, Spring, MySQL, PostgreSQL, Pinecone, Chroma | FastAPI·TensorFlow.js로 플로깅 쓰레기를 YOLO로 탐지하는 앱(줍고, 교내 해커톤), TensorFlow로 비윤리적 댓글 분류 모델 | 학습 데이터 클래스 불균형(의류 0.66%)과 과적합 대응 | Kubernetes |
+| 김민건 | Java, Spring Boot, JPA, Python, FastAPI, JavaScript·TypeScript, React, PostgreSQL·MySQL, Docker, Figma, PyTorch(torch·torchaudio), Hugging Face Transformers, Wav2Vec2 | 웹 화면과 백엔드 API 구현, 데이터베이스 연동, AI 모델을 활용한 음성 평가 기능 개발 | 미정 | 프론트엔드·백엔드 구조 설계와 Docker 기반 배포 |
+| 김태후 | Python, FastAPI, SQLAlchemy, Pydantic, SQLite, HTML·CSS·JavaScript | FastAPI·SQLite로 수행평가 일정·우선순위 관리 웹 '수행평가 폭탄주의보' | SQLAlchemy 집계를 반복문으로 처리해 생긴 N+1 쿼리 문제 | LLM API 연동과 응답 검증 |
+| | | | | |
+
+## 서비스 쪽 조건
+
+| 항목 | 우리 팀 |
+| --- | --- |
+| 핵심 기능 3개 (필수 스토리에서) | |
+| 화면 (웹 / 모바일, 반응형 여부) | |
+| 시연 방식 (내 컴퓨터에서 / 외부 접속) | |
+| LLM이 맡는 일 (초안·요약·분류·설명) | |
+
+## 시간과 제약
+
+| 항목 | 우리 팀 |
+| --- | --- |
+| 개발 기간 (남은 수업일 × 가능한 시간) | |
+| 비용 제약 (무료로만 / 가능한 금액) | |
+| 설치 권한·컴퓨터 환경 제약 | |
+| 외부 서비스 사용 제한 | |
+
+## 아직 모르는 것
+> 다음 차시에 확인할 것을 적습니다. 억지로 채우지 않습니다.
+-

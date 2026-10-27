@@ -18,7 +18,7 @@
 | --- | --- | --- | --- | --- |
 | 이주환 | Python, FastAPI, LangChain, LangSmith, pytest, Git·GitHub | FastAPI 장비 지급 가능 조회 API의 경계값 수정·테스트, LangChain 면접 답변 코치 실습 | 기본 테스트가 통과해도 빠지는 경계값 찾기, LLM 최종 출력만으로 입력·프롬프트·파서 중 오류 지점 구분하기 | 상태 전이·권한·LLM 실패의 API 인수 테스트, RAG 근거 평가와 구조화된 출력 검증 |
 | 권길현 | Python, FastAPI, TensorFlow, TensorFlow.js, YOLO(Ultralytics), LangGraph, LangChain, CrewAI, Spring, MySQL, PostgreSQL, Pinecone, Chroma | FastAPI·TensorFlow.js로 플로깅 쓰레기를 YOLO로 탐지하는 앱(줍고, 교내 해커톤), TensorFlow로 비윤리적 댓글 분류 모델 | 학습 데이터 클래스 불균형(의류 0.66%)과 과적합 대응 | Kubernetes |
-| 김민건 | Java, Spring Boot, JPA, Python, FastAPI, JavaScript·TypeScript, React, PostgreSQL·MySQL, Docker, Figma, PyTorch(torch·torchaudio), Hugging Face Transformers, Wav2Vec2 | 웹 화면과 백엔드 API 구현, 데이터베이스 연동, AI 모델을 활용한 음성 평가 기능 개발 | 미정 | 프론트엔드·백엔드 구조 설계와 Docker 기반 배포 |
+| 김민건 | Java, Spring Boot, JPA, Python, FastAPI, JavaScript·TypeScript, React, PostgreSQL·MySQL, Docker, Figma, PyTorch(torch·torchaudio), Hugging Face Transformers, Wav2Vec2 | 웹 화면과 백엔드 API 구현, 데이터베이스 연동, AI 모델을 활용한 음성 평가 기능 개발 | 음성 인식 모델의 문맥 보정으로 실제 발음 오류가 가려지는 문제를 고려한 모델 선택 | 공식 문서를 검색해 근거와 함께 답하는 RAG와 LLM 응답 평가 방법 |
 | 김태후 | Python, FastAPI, SQLAlchemy, Pydantic, SQLite, HTML·CSS·JavaScript | FastAPI·SQLite로 수행평가 일정·우선순위 관리 웹 '수행평가 폭탄주의보' | SQLAlchemy 집계를 반복문으로 처리해 생긴 N+1 쿼리 문제 | LLM API 연동과 응답 검증 |
 | 여철준 | Java, Spring Boot, JPA, Python, C, FastAPI, MySQL, AI, Docker, Figma, Git & GitHub, AWS | 공간과 팝업 여는 사람 매칭 | AWS | 쿠버네티스 |
 

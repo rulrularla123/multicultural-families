@@ -10,15 +10,15 @@
 | --- | --- |
 | 팀명 | multicultural-families (저장소 식별명) |
 | 배정받은 큰 도메인 | 다문화 가정의 한국 생활·법률·제도 정보 이용 |
-| 세부 주제 (한 줄) | 한국어 안내 이해에 도움이 필요한 결혼이민자가 체류기간 연장 준비 항목을 이해하고 보완할 수 있게 하는 서비스 |
+| 세부 주제 (한 줄) | 결혼이민자가 상황 설명과 서류를 올리면 공식 기준과 대조해 주의점·추가 서류를 안내하고, 담당자가 최종 확인하는 체류기간 연장 준비 서비스 (제안서 v2 부제) |
 | 팀원과 역할 | [docs/team/roles.md](docs/team/roles.md) |
 
 ## 세부 주제 필수 조건
 
 | 조건 | 우리 주제에서는 | 자세히 |
 | --- | --- | --- |
-| LLM이 서비스 기능 안에서 쓰인다 | Claude가 공식 원문으로 쉬운 다국어 설명·준비 항목 초안을 만들고 담당자가 제공 전에 승인 | [03-rules-states-llm.md](docs/domain/03-rules-states-llm.md#3-4-llm이-들어갈-자리) |
-| 핵심 대상에 상태 전이가 있다 | 절차 준비 건: 준비중 → 안내 검토 대기 → 서류 준비중 → 준비 확인 요청 → 준비 확인 완료. 보완·취소·버전 변경 경로 포함 | [03-rules-states-llm.md](docs/domain/03-rules-states-llm.md#3-2-핵심-대상과-상태-전이) |
+| LLM이 서비스 기능 안에서 쓰인다 | LLM이 상황 설명·모의 PDF를 등록 기준과 대조해 주의점·누락 가능성·추가 서류 후보를 만든다. 담당자가 승인하기 전에는 이용자에게 공개하지 않는다 | [backlog.md](docs/requirements/backlog.md) US-02·US-03 |
+| 핵심 대상에 상태 전이가 있다 | 절차 준비 건: 준비중 → 자동 점검중 → 담당자 승인 대기 → 서류 준비중 → 준비 확인 요청 → 준비 확인 완료. 반려·보완·취소와 입력·기준 변경 시 재점검 경로 포함 | [user-flows.md](docs/requirements/user-flows.md) |
 
 ## 문서 지도
 
@@ -36,11 +36,11 @@
 | 6 | [docs/proposal/README.md](docs/proposal/README.md) | **클라이언트에게 보내는 프로젝트 제안서** (Claude 초안 → 팀 확인 → Word 양식, 완성본 docx·PDF) | ☐ |
 | - | `logs/pre-[GitHub 아이디].md` | 개인 회고 (사람마다 파일 하나) | ☐ |
 | 2-1 | [docs/requirements/user-flows.md](docs/requirements/user-flows.md) | 첫 데모에서 보여줄 핵심 사용자 흐름 (상태 4개 이상) | ☑ 상태 6개 · 취소·반려 US-04·06·08 연결 |
-| 2-1 | [docs/requirements/backlog.md](docs/requirements/backlog.md) | 스토리와 인수 조건, 필수/선택 | ☑ 필수 8개 · 금지어 없음 |
-| 2-1 | [docs/decisions/mvp-scope.md](docs/decisions/mvp-scope.md) | MVP 포함·제외(이유), 제안서(v2)와 다른 점 | 작성 중 · 제안서(v2)와 다른 점 남음 |
-| 2-1 | [docs/decisions/stack-inputs.md](docs/decisions/stack-inputs.md) | 기술 스택을 정하기 전 우리 팀 경험·조건 정리 | 작성 중 · 팀원별 줄 채우는 중 |
-| 2-1 | [docs/team/working-agreement.md](docs/team/working-agreement.md) | 팀 작업 규칙 | ☐ |
-| 2-1 | [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/) | 스토리·버그 이슈 양식 | ☐ |
+| 2-1 | [docs/requirements/backlog.md](docs/requirements/backlog.md) | 스토리와 인수 조건, 필수/선택 | ☑ 필수 8개·선택 1개(US-09) · 금지어 없음 |
+| 2-1 | [docs/decisions/mvp-scope.md](docs/decisions/mvp-scope.md) | MVP 포함·제외(이유), 제안서(v2)와 다른 점 | ☑ 포함·제외·제안서(v2)와 다른 점 작성 · 피드백 2(템플릿) 포함 여부 남음 |
+| 2-1 | [docs/decisions/stack-inputs.md](docs/decisions/stack-inputs.md) | 기술 스택을 정하기 전 우리 팀 경험·조건 정리 | 작성 중 · 팀원 5명 줄 작성, 서비스 조건·시간과 제약 칸 남음 |
+| 2-1 | [docs/team/working-agreement.md](docs/team/working-agreement.md) | 팀 작업 규칙 | 작성 중 · 사전활동 규칙 3개 점검, (제안)·빈칸 팀 합의 필요 |
+| 2-1 | [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/) | 스토리·버그 이슈 양식 | ☑ 스토리·버그 양식과 PR 양식 |
 
 > 단계가 끝나면 상태 칸을 ☑로 바꾸고 PR로 올립니다.
 

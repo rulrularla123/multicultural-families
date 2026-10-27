@@ -11,7 +11,7 @@
 > 6. **명령을 막는 규칙은 모든 실행 경로를 막는 격리가 아닙니다.** (예: `curl`만 막는다고 모든 네트워크 접근이 막히지 않습니다.)
 > 7. `>`로 시작하는 안내 문장은 지워도 됩니다.
 
-- 작성일:
+- 작성일: 2026-10-27
 - 위치: `.claude/settings.json` (팀 공유, 커밋됨). 내 컴퓨터에서만 쓸 허용은 `.claude/settings.local.json`
 
 ## 규칙과 이유
@@ -25,7 +25,12 @@
 | ask | `Bash(git push *)` | 올리기 전에 사람이 본다 | |
 | deny | `Read(./.env)`, `Read(./.env.*)` | 비밀 값을 읽지 못하게 한다 | |
 | deny | `Edit(./docs/proposal/**)` | 이미 낸 제안서는 수업 중에 고치지 않는다 | 제안서(v2) 처리는 교사가 정한다 |
-| | | | |
+| allow | `Bash(git fetch)` | 원격 내용만 받아 오고 내 작업 파일은 안 바뀐다. 병합 전에 main이 얼마나 앞서 있는지 자주 봐야 한다 | |
+| ask | `Edit(./docs/decisions/mvp-scope.md)` | MVP 범위는 팀이 정한다. 포함·제외가 바뀌면 백로그·PRD까지 같이 바뀐다 | CLAUDE.md "MVP 범위 바꾸기" |
+| ask | `Edit(./docs/STACK.md)` | 기술 스택은 팀이 결정했다. 다르면 고치지 말고 먼저 알려야 한다 | CLAUDE.md "기술 스택 바꾸기" |
+| ask | `Edit(./CLAUDE.md)` | 팀원 모두의 Claude가 읽는 지침이라 한 사람이 바꾸면 전원에게 적용된다 | CLAUDE.md 팀 규칙 |
+| deny | `Read(./**/.env)`, `Read(./**/.env.*)` | 뼈대를 세우면 `backend/.env`처럼 하위 폴더에 LLM API 키가 생긴다. 루트 `.env` 규칙만으로는 하위 폴더가 안 막힌다 | CLAUDE.md "API 키·비밀번호는 어디에도 적지 않는다" |
+| deny | `Bash(git push --force *)`, `Bash(git push -f *)` | 여러 명이 같은 저장소에 PR을 올린다. 강제 푸시는 다른 사람 커밋을 지울 수 있다. `git push *`가 ask여도 deny가 먼저 적용된다 | CLAUDE.md "브랜치 → PR → 병합" |
 
 ## 시험 결과
 
@@ -36,13 +41,18 @@
 | `docs/proposal/` 아래 파일을 고쳐 달라고 한다 | 차단됨 | | | |
 | `backlog.md`를 고쳐 달라고 한다 | 실행 전에 확인을 물음 | | | |
 | `git status`를 실행해 달라고 한다 | 묻지 않고 실행됨 | | | |
-| (우리 팀 규칙) | | | | |
+| `mvp-scope.md` 제외 표에 한 줄 추가해 달라고 한다 | 실행 전에 확인을 물음 | | | |
+| `docs/STACK.md`의 DB를 PostgreSQL로 바꿔 달라고 한다 | 실행 전에 확인을 물음 | | | |
+| `backend/.env`를 읽어 달라고 한다 (시험용 빈 파일) | 차단됨 | | | |
+| `git push --force`를 해 달라고 한다 | 차단됨 | | | |
 
 ## 막지 않은 것과 이유
 > 막을 수 있었지만 **일부러 막지 않은 것**도 적습니다. 나중에 왜 열려 있는지 알 수 있습니다.
--
+- `main`에 직접 커밋: 권한 규칙은 지금 어느 브랜치인지 구분하지 못한다. `git commit *`을 막으면 브랜치 작업까지 막혀서 GitHub 브랜치 보호와 PR 리뷰로 지킨다.
+- `logs/daily/**` 편집: 일일 기록은 각자 쓰고 PR에서 본다. 매번 묻게 하면 기록을 남기는 일이 번거로워진다.
+- `curl` 등 네트워크 명령: FastAPI 서버를 띄워 로컬 요청을 확인할 때 쓴다. 막아도 다른 명령으로 우회할 수 있어 격리가 되지 않는다.
 
 ## 확인할 것
-- [ ] `settings.json`이 유효한 JSON이다 (쉼표, 따옴표)
-- [ ] `CLAUDE.md`의 "Claude에게 맡기지 않는 것" 중 **파일로 막을 수 있는 것**이 여기에도 있다
-- [ ] 키·비밀번호가 `settings.json`과 이 문서 어디에도 없다
+- [x] `settings.json`이 유효한 JSON이다 (쉼표, 따옴표)
+- [x] `CLAUDE.md`의 "Claude에게 맡기지 않는 것" 중 **파일로 막을 수 있는 것**이 여기에도 있다
+- [x] 키·비밀번호가 `settings.json`과 이 문서 어디에도 없다

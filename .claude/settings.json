@@ -3,16 +3,24 @@
     "allow": [
       "Bash(git status)",
       "Bash(git diff *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(git fetch)"
     ],
     "ask": [
       "Edit(./docs/requirements/backlog.md)",
+      "Edit(./docs/decisions/mvp-scope.md)",
+      "Edit(./docs/STACK.md)",
+      "Edit(./CLAUDE.md)",
       "Bash(git push *)"
     ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
-      "Edit(./docs/proposal/**)"
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Edit(./docs/proposal/**)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
     ]
   }
 }

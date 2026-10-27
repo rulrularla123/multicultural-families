@@ -1,0 +1,26 @@
+# 개인 설정 (저장소에 올리지 않음)
+CLAUDE.local.md
+.claude/settings.local.json
+
+# 비밀 값 — 절대 올리지 않음
+.env
+.env.*
+!.env.example
+
+# 운영체제
+.DS_Store
+Thumbs.db
+
+# 편집기
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+htmlcov/

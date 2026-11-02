@@ -85,7 +85,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - PR 설명은 `.github/pull_request_template.md` 양식을 따른다. 체크박스는 실제로 수행한 것만 체크한다.
 - 한 PR에는 한 블록의 산출물만 담는다.
 - 커밋 메시지는 `종류: 내용` 형식으로 한국어로 쓴다. 종류는 `docs`·`feat`·`fix`·`test`·`logs`. (예: `docs: STACK.md 결정 기록 추가`)
-- 브랜치 이름에 AI 도구 이름(`codex/`, `claude/` 등)을 넣지 않는다.
+- 브랜치 이름에 AI 도구 이름을 넣지 않는다.
 - 이슈는 `.github/ISSUE_TEMPLATE/`의 `user-story.md`·`bug.md` 양식을 쓴다.
 
 - **테스트 파일과 기대값을 구현에 맞춰 바꾸지 않는다.** 바꿔야 할 것 같으면 멈추고 이유를 설명한다.

@@ -39,7 +39,7 @@ Context7에는 라이브러리 이름과 사용법 질문만 보낸다. 상황 �
 
 | 이름 | 따로 설치한 것 (런타임·브라우저 등, 공식 문서 주소) | `claude mcp list` 상태 | `/mcp` 상태 | 남은 문제 (실패하면 운영체제, 명령, 오류 메시지 그대로) |
 | --- | --- | --- | --- | --- |
-| 김태후 | 없음 | context7: https://mcp.context7.com/mcp (HTTP) - ⏸ Pending approval (run claude to approve) | 확인 필요 (승인 전) | 새 `claude` 세션에서 승인한 뒤 `/mcp` 상태를 적어야 함 |
+| 김태후 | 없음 | 승인 전: context7: https://mcp.context7.com/mcp (HTTP) - ⏸ Pending approval (run claude to approve). 새 세션에서 승인 후: context7: https://mcp.context7.com/mcp (HTTP) - ✔ Connected | 확인 필요 (`/mcp` 화면 결과를 기록하지 않음) | 없음 (승인 후 context7으로 문서 조회됨, 3절) |
 | 권길현 | | | | |
 | 김민건 | | | | |
 | 여철준 | | | | |
@@ -50,5 +50,5 @@ Context7에는 라이브러리 이름과 사용법 질문만 보낸다. 상황 �
 | 날짜 | 누가 | MCP (서버 이름) | 어떤 작업 | 무엇을 요청했나 | 무엇을 얻었나 | 내가 직접 확인한 것 | 쓰지 않은 것과 이유 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-02 | 김태후 | context7 | 고르기 전 연결·범위 확인 (Claude Code 밖에서 `curl`로 직접 요청) | `tools/list`, 그리고 `resolve-library-id`에 fastapi·pydantic·pytest·react·gemini api | 도구 2개(`resolve-library-id`, `query-docs`)와 문서 ID: `/websites/fastapi_tiangolo`, `/pydantic/pydantic`, `/pytest-dev/pytest`, `/reactjs/react.dev`, `/websites/ai_google_dev_gemini-api` | 응답이 오는 것과 문서 ID 이름 | 문서 본문(`query-docs`)은 받지 않았고 코드에 쓰지 않음. 구현 작업에 쓴 기록이 아님 |
-| | | | | | | | |
+| 2026-11-02 | 김태후 | context7 | 첫 기능 테스트 작성 준비 (Claude Code 세션 안에서 사용) | "context7으로 FastAPI TestClient 사용법 찾아줘" | FastAPI 공식 문서 https://fastapi.tiangolo.com/advanced/testing-dependencies/ 기준 `app.dependency_overrides`로 의존성을 바꿔 테스트하고 끝나면 `app.dependency_overrides = {}`로 되돌리는 방법 | 응답에 공식 문서 출처가 붙어 있는 것까지. 코드를 직접 실행해 보지는 않음 (테스트 작성 때 실행해 확인) | Claude가 덧붙인 `[추정]` 활용안(모의 계정·Gemini 모의 응답을 `Depends`로 주입해 401·403과 실패·지연·형식 오류 재현)과 PDF 업로드 테스트 형태는 보류. 현재 사용자·LLM 클라이언트를 주입하는 구조가 아직 정해지지 않았다 |
 | | | | | | | | |

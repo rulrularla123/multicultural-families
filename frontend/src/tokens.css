@@ -1,0 +1,16 @@
+/* docs/DESIGN.md 토큰 표의 값. 화면에서는 이 이름만 쓴다. */
+:root {
+  --primary: #1d4f91;
+  --background: #f7f8fa;
+  --text: #1f2933;
+  --space: 8px;
+  --danger: #b42318;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}

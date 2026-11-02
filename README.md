@@ -49,16 +49,23 @@
 | 2-2 | [docs/team/claude-rules.md](docs/team/claude-rules.md) | 팀 규칙 합의 기록 | ☐ |
 | 2-2 | [.claude/agents/](.claude/agents/) | stack-advisor, prd-writer | ☐ |
 | 2-2 | [docs/decisions/scaffold-log.md](docs/decisions/scaffold-log.md) | 뼈대 계획·실행 결과·막힌 지점 | ☐ |
-| 3-1 | [docs/decisions/prd-review.md](docs/decisions/prd-review.md) | PRD 검토 지적과 팀 판단 | ☐ |
+| 3-1 | [docs/decisions/prd-review.md](docs/decisions/prd-review.md) | PRD 검토 지적과 팀 판단 | 작성 · 판단은 팀 확인 전 |
 | 3-1 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) | 데이터 구조·상태값·시드 데이터 | ☐ |
 | 3-1 | [docs/DESIGN.md](docs/DESIGN.md) | UI 디자인 방향·토큰·화면 목록 | ☐ |
 | 3-1 | [docs/CODE-STYLE.md](docs/CODE-STYLE.md) | 팀 코딩 스타일 | ☐ |
 | 3-1 | [docs/decisions/mcp-use.md](docs/decisions/mcp-use.md) | MCP를 고른 이유(또는 고르지 않은 이유), 설치, 연결 확인, 사용 기록 | ☐ |
-| 3-1 | [docs/decisions/first-feature.md](docs/decisions/first-feature.md) | 우리가 고른 첫 기능과 범위, 실행 확인 | ☐ |
-| 3-1 | [docs/API.md](docs/API.md) | 화면·서버가 주고받는 약속 (기능 1항목) | ☐ |
-| 3-1 | [.claude/agents/](.claude/agents/) | prd-reviewer | ☐ |
+| 3-1 | [docs/decisions/first-feature.md](docs/decisions/first-feature.md) | 우리가 고른 첫 기능과 범위, 실행 확인 | US-01로 결정 · 3절은 각자 채움 |
+| 3-1 | [docs/API.md](docs/API.md) | 화면·서버가 주고받는 약속 (기능 1항목) | US-01 1항목 · 제안(합의 전) |
+| 3-1 | [.claude/agents/](.claude/agents/) | prd-reviewer | ☑ PRD v0.1 검토에 사용 |
+| 3-1 | `logs/daily/YYYY-MM-DD-이름.md` | 수업일마다 쓰는 개인 작업 기록 | 사람마다 작성 |
 
 > 단계가 끝나면 상태 칸을 ☑로 바꾸고 PR로 올립니다.
+
+## 실행 방법
+
+- 필요한 것: Python·Node.js·MySQL ([STACK.md](docs/STACK.md) A안). 이 저장소에서 확인된 버전은 Python 3.11.9, Node.js v22.19.0, npm 10.9.3이다 ([scaffold-log.md](docs/decisions/scaffold-log.md) 3절).
+- 화면·서버 코드와 설치·실행·테스트 명령은 아직 저장소에 올라오지 않았다. 실제로 돌아간 명령이 `scaffold-log.md`에 기록되면 여기로 옮긴다.
+- 첫 기능은 [first-feature.md](docs/decisions/first-feature.md)를 본다.
 
 ## 작업 규칙
 

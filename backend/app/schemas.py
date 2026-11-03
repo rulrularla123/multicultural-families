@@ -25,7 +25,7 @@ class RejectResponse(BaseModel):
 class CaseDetail(BaseModel):
     id: int
     situation: str
-    display_language: str
+    display_language: str | None
     support_type: str
     status: CaseStatus
     rejection_reason: str | None
@@ -33,3 +33,21 @@ class CaseDetail(BaseModel):
 
 class OfficerCaseDetail(CaseDetail):
     analysis_items: list
+
+
+class CaseSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    support_type: str
+    status: CaseStatus
+    owner_id: str
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        return value.replace(tzinfo=timezone.utc).isoformat()
+
+
+class CreateCaseResponse(BaseModel):
+    ok: bool = True
+    case: CaseSummary

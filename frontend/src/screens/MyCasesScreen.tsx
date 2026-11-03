@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react'
-import { listCases } from '../api/cases'
-import type { CaseSummary, DemoAccount } from '../types'
+import { errorMessage, listCases } from '../api/cases'
+import type { CaseSummary, UserAccount } from '../types'
+import { CaseDetailPanel } from './CaseDetailPanel'
 import { CaseForm } from './CaseForm'
 import { CaseList } from './CaseList'
 import './MyCasesScreen.css'
 
 type Listing = {
-  account: DemoAccount
+  account: UserAccount
   revision: number
   cases: CaseSummary[]
   error?: string
 }
 
-export function MyCasesScreen() {
-  const [account, setAccount] = useState<DemoAccount>('demo-user-1')
+type Props = {
+  account: UserAccount
+}
+
+export function MyCasesScreen({ account }: Props) {
   const [listing, setListing] = useState<Listing | null>(null)
   const [revision, setRevision] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [openedId, setOpenedId] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -26,7 +31,7 @@ export function MyCasesScreen() {
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
-          setListing({ account, revision, cases: [], error: error instanceof Error ? error.message : '목록 요청 실패' })
+          setListing({ account, revision, cases: [], error: errorMessage(error) })
         }
       })
     return () => controller.abort()
@@ -43,18 +48,6 @@ export function MyCasesScreen() {
   return (
     <main className="my-cases">
       <h1>내 준비 건</h1>
-      <div className="field">
-        <label htmlFor="demo-account">모의 이용자</label>
-        <select
-          id="demo-account"
-          value={account}
-          disabled={formOpen}
-          onChange={(event) => setAccount(event.target.value as DemoAccount)}
-        >
-          <option value="demo-user-1">모의 이용자 1</option>
-          <option value="demo-user-2">모의 이용자 2</option>
-        </select>
-      </div>
       {current?.error && (
         <div className="error" role="alert">
           <p>준비 건 목록을 불러오지 못했습니다. {current.error}</p>
@@ -63,7 +56,10 @@ export function MyCasesScreen() {
       )}
       {!current && <p role="status">불러오는 중</p>}
       {cases !== null && cases.length === 0 && <p>아직 준비 건이 없습니다.</p>}
-      {cases !== null && cases.length > 0 && <CaseList cases={cases} />}
+      {cases !== null && cases.length > 0 && <CaseList cases={cases} onOpen={setOpenedId} />}
+      {openedId !== null && (
+        <CaseDetailPanel caseId={openedId} account={account} onClose={() => setOpenedId(null)} />
+      )}
       {cases !== null && !formOpen && (
         <button type="button" onClick={() => setFormOpen(true)}>새 준비 건 만들기</button>
       )}

@@ -38,5 +38,3 @@ def require_officer(actor: Annotated[DemoActor, Depends(get_actor)]) -> DemoActo
 def get_session(request: Request):
     with request.app.state.session_factory() as session:
         yield session
-
-

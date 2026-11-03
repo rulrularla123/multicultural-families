@@ -138,6 +138,7 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 | `python3 -m venv /private/tmp/multicultural-router-venv` | 임시 가상환경 생성 |
 | `/private/tmp/multicultural-router-venv/bin/pip install -r backend/requirements.txt` (일반·권한 확장 재시도) | 패키지 호스트 주소 해석 실패로 설치 불가 |
 | Python AST 비교 (git show HEAD의 기존 함수와 분리한 두 함수) | 데코레이터 제외 함수 인자·본문 동일 |
-| `git diff --check` | 공백 오류 없음 |
+| `git diff --check HEAD` | 파일 끝 빈 줄 정리 후 공백 오류 없음 |
+| `/private/tmp/multicultural-router-venv/bin/python -m pytest -q` (backend/) | pytest 모듈 없음으로 실행 불가 |
 
 기존 pytest·MySQL 통합 검증은 의존성 설치 불가로 실행하지 못했다. AST 비교는 테스트 통과를 대신하지 않는다. 병합 전에 전용 MySQL 테스트 DB에서 backend/README의 pytest 명령으로 기존 테스트 통과 확인이 필요하다. CI·PDF 추출·LLM 클라이언트는 다음 PR 범위다.

@@ -50,4 +50,3 @@ def reject_case(
         session.flush()
         response = RejectResponse(case_id=case.id, status=case.status, reason=body.reason, rejected_at=now)
     return response
-

@@ -43,4 +43,3 @@ def case_detail(
         return OfficerCaseDetail(**payload, analysis_items=result.analysis_items if result else []).model_dump(mode="json")
     # 이용자에게는 분석 본문과 담당자 계정 ID를 직렬화하지 않는다.
     return CaseDetail(**payload).model_dump(mode="json")
-

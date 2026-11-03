@@ -58,8 +58,11 @@
 
 | 일부러 만든 오류 | 잡아야 하는 완성 기준 # | 실제로 실패한 테스트 | 못 잡았다면 추가한 테스트 |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
+| 상황 설명 길이 비교 `>` → `>=` (1,000자 거절) | 3 | `test_us01_situation_1_and_1000_characters_accepted[1000]`, `test_us01_1000_characters_counting_spaces_and_newlines_accepted[1000_with_spaces]`, `[1000_with_newlines]` | 없음 (잡음) |
+| PDF 시그니처 검사 빠뜨림 | 4 | `test_us01_pdf_extension_without_signature_rejected`, `test_us01_one_bad_file_among_valid_files_rejects_whole_submission` | 없음 (잡음) |
+| 파일 크기 비교 `>` → `>=` (정확히 10MB 거절) | 3 | `test_us01_pdf_exactly_10485760_bytes_accepted` | 없음 (잡음) |
+
+김태후 실행 기록(#76): main `0173833`, Python 3.13.2, 테스트 전용 MySQL 8.0.46. `app/routers/case_detail.py`를 로컬에서 바꿨다가 `git checkout`으로 되돌림(커밋 없음). 되돌린 뒤 전체 `pytest -q` → 179 passed.
 
 ## 4. 오늘 못 끝낸 것 (과제)
 
@@ -72,7 +75,7 @@
 | ~~상황 설명 1,000자에 공백·줄바꿈 포함 여부~~ | 김민건 | 포함으로 결정 (API.md 항목 1) |
 | ~~임시 응답을 실제 서버 주소로 교체~~ | 김민건 (#70에서 함께 처리) | 완료 (#70). 화면 파일 변경은 여철준 확인 필요 (#70 리뷰 댓글) |
 | 3절 5명 실행 확인 | 전원 | 지금. 권길현은 MySQL이 없어 서버·화면 `미실행` |
-| 일부러 틀린 구현 시험 | 김태후 | 3절 실행 확인 뒤 |
+| ~~일부러 틀린 구현 시험~~ | 김태후 | 완료 (#76, 3절에 기록) |
 
 US-04 반려 서버(#51)는 첫 기능보다 먼저 만들어져 병합됐다. 첫 기능은 US-01 그대로 두고, US-04는 다음 기능으로 이어 간다. US-08 취소 서버(#67)도 병합됐지만 `main.py`에 아직 연결되지 않았다.
 

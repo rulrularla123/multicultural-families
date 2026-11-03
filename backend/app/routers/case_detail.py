@@ -62,6 +62,44 @@ def input_errors(errors: list[dict[str, str]]) -> JSONResponse:
     return JSONResponse(status_code=422, content={"ok": False, "errors": errors})
 
 
+# 생성과 이후 입력 수정이 같은 규칙을 쓰도록 검사를 함수로 둔다.
+def check_situation(form) -> tuple[str | None, list[dict[str, str]]]:
+    values = form.getlist("situation")
+    situation = values[0] if len(values) == 1 else None
+    if not isinstance(situation, str) or not situation.strip():
+        return None, [{"field": "situation", "reason": "상황 설명을 입력하세요. 공백·줄바꿈만 입력할 수 없습니다."}]
+    if len(situation) > MAX_SITUATION_LENGTH:
+        return None, [{"field": "situation", "reason": f"상황 설명은 공백·줄바꿈을 포함해 {MAX_SITUATION_LENGTH:,}자 이하로 입력하세요."}]
+    return situation, []
+
+
+def check_file_count(form) -> tuple[list[UploadFile], list[dict[str, str]]]:
+    files = form.getlist("files")
+    if not 1 <= len(files) <= MAX_FILES or any(not isinstance(item, UploadFile) for item in files):
+        return [], [{"field": "files", "reason": "PDF 파일을 1~5개 선택하세요."}]
+    return files, []
+
+
+async def read_pdfs(files: list[UploadFile]) -> tuple[list[tuple[str, bytes]], list[dict[str, str]]]:
+    uploads, errors = [], []
+    for file in files:
+        filename = file.filename or ""
+        if not filename.lower().endswith(".pdf") or len(filename) > 255:
+            errors.append({"field": "files", "reason": "파일명은 255자 이하의 .pdf 확장자여야 합니다."})
+            continue
+        if file.size is not None and file.size > MAX_FILE_BYTES:
+            errors.append({"field": "files", "reason": f"{filename}: PDF는 각 10MB 이하여야 합니다."})
+            continue
+        content = await file.read(MAX_FILE_BYTES + 1)
+        if len(content) > MAX_FILE_BYTES:
+            errors.append({"field": "files", "reason": f"{filename}: PDF는 각 10MB 이하여야 합니다."})
+        elif not content.startswith(PDF_SIGNATURE):
+            errors.append({"field": "files", "reason": f"{filename}: PDF 시그니처가 없습니다."})
+        else:
+            uploads.append((filename, content))
+    return uploads, errors
+
+
 def save_case(session: Session, actor: DemoActor, situation: str, uploads: list[tuple[str, bytes]]) -> CreateCaseResponse:
     with session.begin():
         case = PreparationCase(
@@ -110,33 +148,12 @@ async def create_case(
             support_values = form.getlist("support_type")
             if len(support_values) != 1 or support_values[0] != "F-6-1":
                 errors.append({"field": "support_type", "reason": "지원 유형은 F-6-1 하나만 제출하세요."})
-            situation_values = form.getlist("situation")
-            situation = situation_values[0] if len(situation_values) == 1 else None
-            if not isinstance(situation, str) or not situation.strip():
-                errors.append({"field": "situation", "reason": "상황 설명을 입력하세요. 공백·줄바꿈만 입력할 수 없습니다."})
-            elif len(situation) > MAX_SITUATION_LENGTH:
-                errors.append({"field": "situation", "reason": f"상황 설명은 공백·줄바꿈을 포함해 {MAX_SITUATION_LENGTH:,}자 이하로 입력하세요."})
-            files = form.getlist("files")
-            if not 1 <= len(files) <= MAX_FILES or any(not isinstance(item, UploadFile) for item in files):
-                errors.append({"field": "files", "reason": "PDF 파일을 1~5개 선택하세요."})
+            situation, situation_errors = check_situation(form)
+            files, file_errors = check_file_count(form)
+            errors += situation_errors + file_errors
             if errors:
                 return input_errors(errors)
-            uploads = []
-            for file in files:
-                filename = file.filename or ""
-                if not filename.lower().endswith(".pdf") or len(filename) > 255:
-                    errors.append({"field": "files", "reason": "파일명은 255자 이하의 .pdf 확장자여야 합니다."})
-                    continue
-                if file.size is not None and file.size > MAX_FILE_BYTES:
-                    errors.append({"field": "files", "reason": f"{filename}: PDF는 각 10MB 이하여야 합니다."})
-                    continue
-                content = await file.read(MAX_FILE_BYTES + 1)
-                if len(content) > MAX_FILE_BYTES:
-                    errors.append({"field": "files", "reason": f"{filename}: PDF는 각 10MB 이하여야 합니다."})
-                elif not content.startswith(PDF_SIGNATURE):
-                    errors.append({"field": "files", "reason": f"{filename}: PDF 시그니처가 없습니다."})
-                else:
-                    uploads.append((filename, content))
+            uploads, errors = await read_pdfs(files)
             if errors:
                 return input_errors(errors)
             return await run_in_threadpool(save_case, session, actor, situation, uploads)

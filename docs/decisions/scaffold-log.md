@@ -152,3 +152,13 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 - `/private/tmp/multicultural-common-venv/bin/pip install --retries 0 pypdf==6.21.4 pytest`: 일반·권한 확장 모두 배포본을 찾지 못해 설치 실패.
 - `PYTHONPATH=backend python3 -m unittest discover -s backend/common_tests -v`: PDF 시그니처 거절 1개 통과, pypdf 필요한 실제 PDF 테스트 4개 건너뜀. PDF 추출 성공 검증 완료가 아니다.
 - `git diff --check`: 통과. 의존성이 설치되는 환경에서 실제 PDF 테스트 및 기존 MySQL 회귀 검증이 병합 전 필요하다.
+
+
+## 2026-11-03 LLM 모의·Gemini 클라이언트
+
+- PDF 브랜치 위에 `feat/llm-client-jhlarry1109`를 분기했다. 입력·출력 및 호출자 책임은 backend/COMMON-MODULES.md에 전달안으로 기록했다.
+- 성공·오류·61초 지연·형식 오류 모의 구현, 공통 최대 60초 제한, 엄격한 결과 스키마, 미등록 근거 확인 필요 정규화, 식별정보 전송 차단을 추가했다.
+- Gemini REST 어댑터는 키·모델을 명시 주입한다. 실제 키·환경변수·외부 Gemini 호출은 사용하지 않았다. DB 모델·상태 전이·결과 공개 API도 수정하지 않았다.
+- `python3 -c 'import pydantic,httpx; print(pydantic.__version__,httpx.__version__)'`: 로컬 사용 가능 버전 2.13.5 / 0.28.1. 저장소 고정 환경 재현과 구분한다.
+- `PYTHONPATH=backend python3 -m unittest discover -s backend/common_tests -v`: 17개 중 13개 통과, PDF 라이브러리가 필요한 4개 건너뜀. LLM 테스트 12개에는 모의 HTTP 본문, 차단, 타임아웃 취소, 오류 응답·형식·근거 확인이 포함된다.
+- `git diff --check`: 통과. 실제 Gemini·고정 의존성 전체·MySQL 회귀 검증은 미실행이다.

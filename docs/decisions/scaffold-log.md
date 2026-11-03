@@ -121,3 +121,23 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 5. 실제로 성공한 설치·실행·테스트 명령과 작업 위치를 이 기록·CLAUDE·README에 맞춘다. 각자 자기 Mac에서 확인한 결과는 PM에게 전달해 `first-feature.md` 3절에 모은다.
 
 `.gitignore`는 이번에 MCP가 생성한 파일이 없어 수정하지 않았다. MCP 선택·설치·연결과 `.mcp.json` 작성은 제안한 사람의 작업으로 남긴다.
+
+
+## 2026-11-03 서버 router 구조 분리
+
+- 기준: main #56 (`6204e50`). 상세 조회·반려를 각각 `backend/app/routers/case_detail.py`, `rejection.py`로 이동했다.
+- 모의 계정과 세션 의존성은 `backend/app/dependencies.py`로 이동했다. main은 앱 생성·수명주기·CORS·router 등록을 담당한다.
+- API 경로·요청·응답·상태 처리 및 모델·기존 테스트는 변경하지 않았다. CODE-STYLE 담당 표는 팀 리뷰할 제안으로 작성했다.
+- CLAUDE의 오래된 코드 부재 안내와 F-02·재점검 제외 안내를 현재 코드·백로그에 맞췄다. 추출 실패는 준비중 유지로 바로잡았다.
+
+| 실행한 명령·검사 | 실제 결과 |
+| --- | --- |
+| `git rev-parse HEAD origin/main` (작업 시작 시) | 둘 다 `6204e50648646f6bfbc14f7ba9cc56ad3e612422` |
+| `python3 -c 'import fastapi, sqlalchemy, pytest; print("dependencies available")'` | sqlalchemy 모듈 없음 |
+| `docker info --format '{{.ServerVersion}}'` | Docker daemon 소켓 없음 |
+| `python3 -m venv /private/tmp/multicultural-router-venv` | 임시 가상환경 생성 |
+| `/private/tmp/multicultural-router-venv/bin/pip install -r backend/requirements.txt` (일반·권한 확장 재시도) | 패키지 호스트 주소 해석 실패로 설치 불가 |
+| Python AST 비교 (git show HEAD의 기존 함수와 분리한 두 함수) | 데코레이터 제외 함수 인자·본문 동일 |
+| `git diff --check` | 공백 오류 없음 |
+
+기존 pytest·MySQL 통합 검증은 의존성 설치 불가로 실행하지 못했다. AST 비교는 테스트 통과를 대신하지 않는다. 병합 전에 전용 MySQL 테스트 DB에서 backend/README의 pytest 명령으로 기존 테스트 통과 확인이 필요하다. CI·PDF 추출·LLM 클라이언트는 다음 PR 범위다.

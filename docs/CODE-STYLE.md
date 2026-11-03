@@ -29,11 +29,21 @@
 | 8 | 키·토큰·비밀번호·실제 개인정보를 코드·문서·로그·`.mcp.json`에 넣지 않는다. `.env` 및 비밀 값 파일은 읽거나 대화에 붙이지 않는다 | `git ls-files .env CLAUDE.local.md`의 빈 결과와 `.gitignore`를 확인한다. 하위 비밀 파일 추적 여부와 PR의 추가 내용도 확인한다. 파일 내용을 열어 비밀 값을 검사하지 않는다 |
 
 ## 담당 폴더
-| 영역 | 폴더 | 수정할 수 있는 사람 |
-| --- | --- | --- |
-| 공유 (공통 코드, 설정, 의존성 파일) | 루트 `CLAUDE.md`, `.gitignore`, 공유 설정·의존성 파일. 공통 코드 경로는 뼈대 코드 인수 후 확정 | 이주환 (요청은 PR 댓글로) |
-| 서버 | 미정 — 현재 체크아웃에 FastAPI 코드 없음 | 김민건 |
-| 화면 | 미정 — 현재 체크아웃에 React 코드 없음 | 여철준 |
-| 테스트 | 미정 — 현재 체크아웃에 테스트 코드 없음 | 김태후 |
 
-폴더 이름은 설치 완료 보고만으로 정하지 않는다. 기존 뼈대 코드의 실제 경로를 인수한 뒤 표를 채운다. 전원이 구현·리뷰에 참여하되 같은 파일을 동시에 고치지 않도록 담당자와 수정 범위를 먼저 맞춘다.
+아래는 2026-11-03 작업 분배를 반영한 제안이다. 팀 리뷰 후 확정하며, 새 파일은 담당 경로를 먼저 맞춘다.
+
+| 영역 | 폴더·파일 | 수정할 수 있는 사람 |
+| --- | --- | --- |
+| 공유 설정·서버 조립 | `backend/app/main.py`, `backend/app/dependencies.py`, 패키지 초기화 파일, 루트 `CLAUDE.md`, 공유 설정·의존성 | 이주환 |
+| 상세 조회·생성·목록·점검·승인·체크·완료 | `backend/app/routers/case_detail.py`, 이후 스토리별 router 파일(파일명은 작업 전 합의) | 김민건 |
+| 반려 (US-04) | `backend/app/routers/rejection.py` | 김민건 |
+| 기준 등록·변경, 보완 | 이후 `backend/app/routers/` 내 스토리별 파일(파일명은 작업 전 합의) | 이주환 |
+| 취소·입력 수정·재점검 | 이후 `backend/app/routers/` 내 스토리별 파일(파일명은 작업 전 합의) | 권길현 (재점검 담당은 제안) |
+| 식별정보 검사 | `backend/app/common/identity_patterns.py` (후속 작업에서 생성) | 권길현 |
+| PDF 추출·LLM 클라이언트 | `backend/app/common/pdf_extraction.py`, `backend/app/common/llm_client.py` (후속 작업에서 생성) | 이주환 |
+| 공유 모델·스키마·DB·시드 | `backend/app/models.py`, `schemas.py`, `database.py`, `seed.py` | 김민건 |
+| 서버 자체 점검 | `backend/tests/` (acceptance 제외) | 김민건 |
+| 인수 테스트 | `backend/tests/acceptance/` (후속 작업에서 생성) | 김태후 |
+| 화면 | `frontend/` | 여철준 |
+
+문서별 수정 담당은 위 규칙 4를 따른다. 다른 담당 파일 변경은 PR에 요청으로 남긴다. 아직 이름이 없는 router는 구현 전에 이 표에 파일명과 담당자를 추가한다.

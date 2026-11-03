@@ -41,14 +41,12 @@ def test_us01_situation_lengths_are_1_1000_1001_characters(situations):
     assert not any(c.isspace() for c in situations[1001])
 
 
-def test_us01_counted_situations_count_spaces_but_not_newlines(counted_situations):
-    def count(s):
-        return len(s.replace("\n", ""))
-
-    assert {k: count(s) for k, s in counted_situations.items()} == {
-        "1000_with_spaces": 1000, "1001_with_spaces": 1001, "1000_plus_newlines": 1000,
+def test_us01_counted_situations_count_spaces_and_newlines(counted_situations):
+    assert {k: len(s) for k, s in counted_situations.items()} == {
+        "1000_with_spaces": 1000, "1001_with_spaces": 1001,
+        "1000_with_newlines": 1000, "1001_with_newlines": 1001,
     }
-    assert len(counted_situations["1000_plus_newlines"]) == 1002
+    assert "\n" in counted_situations["1000_with_newlines"]
 
 
 def test_us01_blank_situations_contain_only_whitespace(blank_situations):

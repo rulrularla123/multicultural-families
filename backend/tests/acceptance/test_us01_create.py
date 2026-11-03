@@ -1,19 +1,14 @@
-"""US-01 상황 설명과 서류로 준비 건 만들기 — 인수 테스트 (구현 전 작성).
+"""US-01 상황 설명과 서류로 준비 건 만들기 — 인수 테스트.
 
-기대값은 backlog.md US-01 인수 조건과 API.md 항목 1·2(docs/api-agreement-hyun731, 36d9f81)에서만 가져온다.
-오류 응답 형식은 API.md에서 미정이라, 거절은 "201 아님 + 준비 건 수 그대로 + 응답에 거절한 필드 이름"으로 확인한다.
+기대값은 backlog.md US-01 인수 조건과 API.md 공통 규칙·항목 1·2에서만 가져온다.
+거절은 422 {ok: false, errors: [{field, reason}]} + 준비 건 수 그대로로 확인한다(API.md 항목 1 실패 응답).
 범위 밖(first-feature 1절): 표시 언어, 다른 이용자 상세 조회 403(2절 5번).
-
-US-01 생성·목록 API가 아직 없어 모듈 전체를 xfail(strict)로 둔다. 서버가 병합돼 통과하면
-XPASS가 실패로 보고되므로 그때 이 표시만 지운다. 기대값은 바꾸지 않는다.
 """
 import pytest
 from sqlalchemy import func, select
 
 from app.models import CaseStatus, PreparationCase
 
-
-pytestmark = pytest.mark.xfail(reason="US-01 생성·목록 API 미구현 (김민건 작업 전)", strict=True)
 
 OFFICER = {"X-Demo-Account": "demo-officer"}
 OWNER = {"X-Demo-Account": "demo-user-1"}
@@ -39,9 +34,13 @@ def case_count(factory):
 
 
 def assert_rejected(response, factory, before, field):
-    assert response.status_code != 201
+    """US-01 (실패) 4: 준비 건을 만들지 않고 해당 항목과 거절 사유를 돌려준다."""
+    assert response.status_code == 422
+    body = response.json()
+    assert body["ok"] is False
+    reasons = [e["reason"] for e in body["errors"] if e["field"] == field]
+    assert reasons and all(reasons)
     assert case_count(factory) == before
-    assert field in response.text
 
 
 # --- 2절 1번 (정상) -------------------------------------------------------
@@ -63,11 +62,12 @@ def test_us01_valid_submission_creates_one_preparing_case_owned_by_submitter(sub
     assert case_count(factory) == before + 1
 
 
-def test_us01_anonymous_cannot_create_401(submit, client, factory):
-    """API.md 항목 1 권한: 계정 없음 401."""
+@pytest.mark.parametrize("headers,status", [({}, 401), (OFFICER, 403)], ids=["anonymous", "officer"])
+def test_us01_anonymous_401_and_officer_403_cannot_create(submit, client, factory, headers, status):
+    """API.md 항목 1 권한: 계정 없음 401, 담당자 403. 준비 건은 만들어지지 않는다."""
     before = case_count(factory)
 
-    assert submit(headers={}).status_code == 401
+    assert submit(headers=headers).status_code == status
     assert case_count(factory) == before
 
 

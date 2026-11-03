@@ -2,21 +2,27 @@
 
 - 대상 차시: 3주차 1일차 (수업일 2026-11-03)
 - 작성일: 2026-11-02
+- 수정일: 2026-11-03 (최신 업무 배분의 US-01 Attachment 모델 선행 작업)
 - 작성: 김민건 / 개발자1 업무
-- 상태: US-04 서버와 맞춘 담당자 작성안. 팀 합류에서 확정하고 PM이 PRD에 반영할 내용이다.
-- 근거: [PRD 6·7절](PRD.md#6-데이터-구조), [선정 주제 B 상태 흐름](domain/03-rules-states-llm.md#선정-주제-b의-상태-흐름), [백로그 US-04](requirements/backlog.md#us-04-담당자가-분석-결과를-반려하기).
+- 상태: 기존 US-04 모델을 유지하고 US-01의 Attachment를 추가한 담당자 작성안. 폴더 분리는 PR #57로 반영됐고, 사용자 지시로 협의 대기를 생략해 생성·목록을 기존 담당 case_detail router에 구현했다. 팀 합의를 수행한 기록과 구분한다.
+- 근거: [PRD 6·7절](PRD.md#6-데이터-구조), [선정 주제 B 상태 흐름](domain/03-rules-states-llm.md#선정-주제-b의-상태-흐름), [백로그 US-01](requirements/backlog.md#us-01-상황-설명과-서류로-준비-건-만들기)·[US-04](requirements/backlog.md#us-04-담당자가-분석-결과를-반려하기).
 
 ## 모델과 필드
 
-오늘 선택한 기능은 **US-04 담당자 반려(F-04)**다. 반려·사유 표시·분석 비공개에 필요한 세 모델을 정리한다. 상태 목록은 전체 흐름과 동일하게 유지하되 다른 상태의 변경 API까지 구현하지 않는다. DB는 STACK의 MySQL, 문자열 인코딩은 utf8mb4다.
+최신 업무는 **US-01 준비 건 생성·목록(F-01)**이다. 모델을 먼저 나누어 병합하기 위해 Attachment를 추가하고, 기존 US-04 반려·사유 표시·분석 비공개의 세 모델은 유지한다. 상태 목록은 전체 흐름과 동일하게 유지하되 다른 상태의 변경 API까지 구현하지 않는다. DB는 STACK의 MySQL, 문자열 인코딩은 utf8mb4다.
 
 | 모델 | 필드 | 타입 | 필수 | 설명 | 연결된 기능 ID |
 | --- | --- | --- | --- | --- | --- |
 | PreparationCase (절차 준비 건) | id | BIGINT UNSIGNED, PK | 예 | 준비 건 ID. 시드에서는 고정 ID 사용 | F-01·F-04 |
 | PreparationCase | owner_id | VARCHAR(64) | 예 | 모의 이용자 식별자. 담당자 역할은 서버가 별도 판단 | F-01·F-04 |
-| PreparationCase | situation | TEXT | 예 | 이용자가 입력한 상황. 오늘은 모의 시드만 사용하고 생성 API는 만들지 않음 | F-01·F-04 |
-| PreparationCase | display_language | VARCHAR(32) | 예 | 표시 언어. 시드 실행 시 주입하며 첫 모국어를 임의로 확정하지 않음 | F-05 |
-| PreparationCase | status | VARCHAR(32) | 예 | 아래 한글 상태값 8개만 허용 | F-04 |
+| PreparationCase | situation | TEXT | 예 | 생성 API의 원문 입력. 공백·줄바꿈을 포함한 Unicode 코드 포인트 1~1,000자. 공백만 입력하면 거절 | F-01·F-04 |
+| PreparationCase | display_language | VARCHAR(32), NULL 허용 | 후속 선택 시 | US-01 입력에서 제외하고 NULL 저장. 기존 시드 언어는 유지 | F-05 |
+| PreparationCase | status | VARCHAR(32) | 예 | 생성 시 준비중, 아래 한글 상태값 8개만 허용 | F-01·F-04 |
+| Attachment (첨부 서류) | id | BIGINT UNSIGNED, PK | 예 | 첨부 식별자. 서버 발급 | F-01 |
+| Attachment | case_id | BIGINT UNSIGNED, FK | 예 | 소속 준비 건. 고아 첨부와 임의의 연쇄 삭제 방지 | F-01 |
+| Attachment | filename | VARCHAR(255) | 예 | 원래 파일명. 저장 경로나 실제 파일 유효성을 보장하는 필드가 아님 | F-01 |
+| Attachment | size_bytes | BIGINT UNSIGNED | 예 | 바이트 크기. DB에서 0~10,485,760 허용. PDF 형식 검사는 생성 API에서 별도 수행 | F-01 |
+| Attachment | document_version | INTEGER UNSIGNED | 예 | 기본값 1, 1 이상. 해당 서류가 속한 준비 건의 서류 버전 | F-01·F-03 |
 | CheckResult (점검 결과) | id | BIGINT UNSIGNED, PK | 예 | 점검 결과 ID. 오늘은 비공개 시험용 모의 초안 | F-03·F-04 |
 | CheckResult | case_id | BIGINT UNSIGNED, FK | 예 | 소속 준비 건 | F-03·F-04 |
 | CheckResult | analysis_items | JSON 배열 | 예 | 담당자용 초안. 이용자 상세 응답에는 포함하지 않음 | F-03·F-04 |
@@ -33,14 +39,15 @@
 | 모델 | 필드·타입 | 쓰는 이유 |
 | --- | --- | --- |
 | PreparationCase | support_type VARCHAR(16), situation_version·document_version INTEGER, current_check_task_id VARCHAR(64) NULL, created_at DATETIME(6) | F-6-1과 입력 버전 보존. 반려 시 현재 점검 작업 연결 해제. 다른 스토리의 입력 변경·재점검은 아직 구현하지 않음 |
+| Attachment | extracted_text LONGTEXT NULL, file_data LONGBLOB NULL (지연 로딩) | 추출 텍스트는 NULL. 생성 API는 원본을 file_data에 비공개 저장. 기존 메타데이터 행은 원본 NULL 허용. 목록·상세·LLM 입력에서 원본 제외 |
 | CheckResult | situation_version·document_version INTEGER, task_id VARCHAR(64) NULL, failure_reason TEXT NULL | 이후 US-02 연결에 필요한 점검 당시 정보. 오늘 실제 LLM 호출은 없음 |
 | CaseHistory | id BIGINT UNSIGNED PK, actor_role VARCHAR(16), occurred_at DATETIME(6), criterion_versions JSON 배열 | 이력 식별·처리자 역할·UTC 처리 시각·당시 기준 버전 보존 |
 
-첨부 서류·적용 기준·준비 항목 및 기준 연결 테이블은 기존 PRD 6절 설계를 유지하고 해당 스토리 구현에서 구체화한다. 오늘 서버에 구현됐다고 표시하지 않는다. JSON 스냅샷이 실제 기준과의 외래 키 검증을 대신하지는 않는다.
+적용 기준·준비 항목 및 기준 연결 테이블은 기존 PRD 6절 설계를 유지하고 해당 스토리 구현에서 구체화한다. 오늘 서버에 구현됐다고 표시하지 않는다. JSON 스냅샷이 실제 기준과의 외래 키 검증을 대신하지는 않는다.
 
 ## 관계
 
-- PreparationCase 1개 → CheckResult 여러 개, CaseHistory 여러 개. case_id로 연결하고 임의의 연쇄 삭제를 설정하지 않는다.
+- PreparationCase 1개 → Attachment 여러 개, CheckResult 여러 개, CaseHistory 여러 개. case_id로 연결하고 임의의 연쇄 삭제를 설정하지 않는다.
 - 반려는 준비 건 행을 잠근 뒤 현재 상태를 검사하고, 상태 변경·점검 결과 무효화·이력 저장을 한 트랜잭션으로 처리한다. 어느 단계든 실패하면 모두 되돌린다.
 - 최소 상세 조회는 소유자·담당자만 허용한다. rejection_reason은 이력에서 계산하는 응답 필드이며 준비 건 테이블에 중복 저장하지 않는다.
 - 반려 요청·응답과 모의 계정 사용 방식은 [서버 전달안](../backend/README.md#화면-담당자pm에게-전달할-api-계약)에서 확인한다. 공유 API 약속은 개발자1·2 합의 후 PM이 반영한다.
@@ -69,9 +76,9 @@
 | 모델 | 필드 | 보내지 않는 이유 |
 | --- | --- | --- |
 | PreparationCase·모의 계정 | owner_id, 계정 ID·이메일 | 분석에 불필요한 계정 정보 |
-| PreparationCase·추후 Attachment | 식별정보가 있는 상황·추출 텍스트, PDF 원본 바이너리 | 기존 제안서·03 문서의 전송 금지 대상. 실제 서류는 사용하지 않음 |
+| PreparationCase·Attachment | 식별정보가 있는 상황·추출 텍스트, PDF 원본 바이너리 | 기존 제안서·03 문서의 전송 금지 대상. 실제 서류는 사용하지 않음 |
 | CaseHistory | reason, actor_id | 반려 사유에 식별정보가 섞일 수 있고 처리자 ID는 분석에 불필요 |
-| 내부 모델 | 내부 PK·FK·점검 작업 식별자 | 내부 연결과 권한은 서버에서 관리. 근거 기준 ID·버전의 허용 범위와 구분 |
+| 내부 모델 | 내부 PK·FK·점검 작업 식별자 | 내부 연결과 권한은 서버에서 관리. 근거 기준 ID·버전의 허용 범위와 얼구분 |
 
 오늘 반려 서버에는 LLM 호출 경로가 없다. 이후 US-02를 연결할 때에도 반려 사유를 입력에 넣지 않는다.
 
@@ -93,8 +100,8 @@
 
 | 항목 | 누가 언제 정하나 |
 | --- | --- |
-| 첫 기능 범위·완성 기준과 공유 API 약속 반영 | PM·테스트 담당·개발자2와 합류 시. 사용자 선택은 US-04이며 first-feature.md·API.md는 아직 빈 양식 |
-| 표시 언어와 화면 배치 | 개발자2·팀이 DESIGN.md에서 합류 시 결정. 반려 API 자체는 번역·언어 선택을 구현하지 않음 |
-| 전체 데이터 설계와 PRD v1.0 연결 | 팀이 문서 대조 후 확정하고 PM이 PRD에 반영 |
-| 서버 의존성·폴더 구성의 공통 환경 반영 | 테크리더가 backend의 새 구성안을 검토한 뒤 반영 |
+| 공유 API 문서·화면 연결 반영 | 사용자 지시로 구현한 [생성·목록 계약](../backend/US01-API-PROPOSAL.md)을 PM·화면 담당에게 전달. 실제 팀 합의를 했다고 표시하지 않음 |
+| 후속 표시 언어 선택·번역 | US-01은 DB·상세 응답에서 NULL 허용으로 충돌 해소. 실제 모국어는 후속 팀·클라이언트 결정 후 입력 |
+| 원본·취소 건의 보관 기간 | 이번에는 원본을 비공개 DB에 보존하고 임의의 삭제 기능을 만들지 않음. 실제 자료 처리 전 정책은 클라이언트·팀이 결정 |
+| 공통 환경·테스트 담당과 연결 | 기존 민건 담당 case_detail.py를 사용해 새 파일 등록은 불필요. 코드 포인트 길이·원문 보존 기준과 multipart 의존성을 PM·테크리더·테스트 담당에게 전달 |
 | 실제 자료·PDF·이력 보관·삭제 정책 | 팀·클라이언트가 실제 자료 처리 전에 결정. 이번 모의 반려 기능에서는 삭제 기능을 추가하지 않음 |

@@ -2,9 +2,14 @@ from datetime import datetime, timezone
 from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, ForeignKey, JSON, String, Text
-from sqlalchemy.dialects.mysql import BIGINT, DATETIME, LONGTEXT
+from sqlalchemy.dialects.mysql import BIGINT, DATETIME, INTEGER, LONGBLOB, LONGTEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+
+MAX_SITUATION_LENGTH = 1000
+MAX_FILES = 5
+MAX_FILE_BYTES = 10_485_760
+PDF_SIGNATURE = b"%PDF-"
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -38,13 +43,30 @@ class PreparationCase(Base):
     id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
     owner_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     situation: Mapped[str] = mapped_column(Text, nullable=False)
-    display_language: Mapped[str] = mapped_column(String(32), nullable=False)
+    display_language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     support_type: Mapped[str] = mapped_column(String(16), default="F-6-1", nullable=False)
     status: Mapped[str] = mapped_column(String(32), default=CaseStatus.PREPARING.value, nullable=False)
     situation_version: Mapped[int] = mapped_column(default=1, nullable=False)
     document_version: Mapped[int] = mapped_column(default=1, nullable=False)
     current_check_task_id: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    __table_args__ = (
+        CheckConstraint(f"size_bytes >= 0 AND size_bytes <= {MAX_FILE_BYTES}", name="ck_attachment_size"),
+        CheckConstraint("document_version >= 1", name="ck_attachment_document_version"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("preparation_cases.id"), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False)
+    document_version: Mapped[int] = mapped_column(INTEGER(unsigned=True), default=1, nullable=False)
+    extracted_text: Mapped[str | None] = mapped_column(LONGTEXT, nullable=True)
+    file_data: Mapped[bytes | None] = mapped_column(LONGBLOB, nullable=True, deferred=True)
 
 
 class CheckResult(Base):

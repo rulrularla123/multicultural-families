@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 from app.database import build_engine, session_factory
 from app.main import create_app
-from app.models import Base, CaseHistory, CheckResult, PreparationCase
+from app.models import Attachment, Base, CaseHistory, CheckResult, PreparationCase
 from app.seed import seed_demo
 
 
@@ -26,7 +26,7 @@ def engine():
 def factory(engine):
     factory = session_factory(engine)
     with factory.begin() as session:
-        for model in (CaseHistory, CheckResult, PreparationCase):
+        for model in (Attachment, CaseHistory, CheckResult, PreparationCase):
             session.execute(delete(model))
         seed_demo(session, "test-language")
     return factory

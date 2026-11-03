@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { createCase } from '../api/cases'
-import type { FieldError } from '../types'
+import type { DemoAccount, FieldError } from '../types'
 
 type Props = {
+  account: DemoAccount
   onCreated: () => void
+  onCancel: () => void
 }
 
 function FieldErrors({ id, errors }: { id: string; errors: FieldError[] }) {
@@ -18,7 +20,7 @@ function FieldErrors({ id, errors }: { id: string; errors: FieldError[] }) {
   )
 }
 
-export function CaseForm({ onCreated }: Props) {
+export function CaseForm({ account, onCreated, onCancel }: Props) {
   const [supportType, setSupportType] = useState('F-6-1')
   const [situation, setSituation] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -39,7 +41,7 @@ export function CaseForm({ onCreated }: Props) {
     setSubmitFailed(false)
     setErrors([])
     try {
-      const result = await createCase({ support_type: supportType, situation, files })
+      const result = await createCase({ support_type: supportType, situation, files }, account)
       if (result.ok) {
         onCreated()
       } else {
@@ -55,10 +57,12 @@ export function CaseForm({ onCreated }: Props) {
   const situationErrors = errorsFor('situation')
   const fileErrors = errorsFor('files')
   const supportTypeErrors = errorsFor('support_type')
+  const otherErrors = errors.filter((error) => !['support_type', 'situation', 'files'].includes(error.field))
 
   return (
     <form className="case-form" onSubmit={handleSubmit} noValidate>
       <h2>새 준비 건 만들기</h2>
+      <FieldErrors id="form-errors" errors={otherErrors} />
 
       {submitFailed && (
         <p className="error" role="alert">
@@ -71,6 +75,7 @@ export function CaseForm({ onCreated }: Props) {
         <select
           id="support-type"
           value={supportType}
+          disabled={submitting}
           onChange={(event) => setSupportType(event.target.value)}
           aria-describedby={supportTypeErrors.length > 0 ? 'support-type-errors' : undefined}
         >
@@ -84,11 +89,13 @@ export function CaseForm({ onCreated }: Props) {
         <textarea
           id="situation"
           rows={6}
+          disabled={submitting}
           value={situation}
           onChange={(event) => setSituation(event.target.value)}
           aria-invalid={situationErrors.length > 0}
-          aria-describedby={situationErrors.length > 0 ? 'situation-errors' : undefined}
+          aria-describedby={situationErrors.length > 0 ? 'situation-count situation-errors' : 'situation-count'}
         />
+        <p id="situation-count">{Array.from(situation).length.toLocaleString()} / 1,000자 (공백·줄바꿈 포함)</p>
         <FieldErrors id="situation-errors" errors={situationErrors} />
       </div>
 
@@ -99,6 +106,7 @@ export function CaseForm({ onCreated }: Props) {
           type="file"
           accept=".pdf,application/pdf"
           multiple
+          disabled={submitting}
           onChange={handleFiles}
           aria-invalid={fileErrors.length > 0}
           aria-describedby={fileErrors.length > 0 ? 'files-errors' : undefined}
@@ -109,6 +117,7 @@ export function CaseForm({ onCreated }: Props) {
       <button type="submit" disabled={submitting}>
         {submitting ? '제출하는 중' : '제출'}
       </button>
+      <button className="cancel-button" type="button" disabled={submitting} onClick={onCancel}>취소</button>
     </form>
   )
 }

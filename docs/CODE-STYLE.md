@@ -42,6 +42,7 @@
 | 식별정보 검사 | `backend/app/common/identity_patterns.py` (후속 작업에서 생성) | 권길현 |
 | PDF 추출·LLM 클라이언트 | `backend/app/common/pdf_extraction.py`, `backend/app/common/llm_client.py` (후속 작업에서 생성) | 이주환 |
 | 공유 모델·스키마·DB·시드 | `backend/app/models.py`, `schemas.py`, `database.py`, `seed.py` | 김민건 |
+| 공통 모듈 단위 점검 | `backend/common_tests/` (DB 없이 unittest 실행) | 이주환 |
 | 서버 자체 점검 | `backend/tests/` (acceptance 제외) | 김민건 |
 | 인수 테스트 | `backend/tests/acceptance/` (후속 작업에서 생성) | 김태후 |
 | 화면 | `frontend/` | 여철준 |

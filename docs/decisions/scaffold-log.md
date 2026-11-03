@@ -142,3 +142,13 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 | `/private/tmp/multicultural-router-venv/bin/python -m pytest -q` (backend/) | pytest 모듈 없음으로 실행 불가 |
 
 기존 pytest·MySQL 통합 검증은 의존성 설치 불가로 실행하지 못했다. AST 비교는 테스트 통과를 대신하지 않는다. 병합 전에 전용 MySQL 테스트 DB에서 backend/README의 pytest 명령으로 기존 테스트 통과 확인이 필요하다. CI·PDF 추출·LLM 클라이언트는 다음 PR 범위다.
+
+
+## 2026-11-03 PDF 추출 모듈
+
+- main #72 기준으로 `feat/pdf-extraction-jhlarry1109`에서 구현. 함수 형태와 실패 정책은 backend/COMMON-MODULES.md의 연결 제안으로 남겼다.
+- `.env`·DB·API·모델·기존 테스트는 수정하거나 읽지 않았다. 공통 모듈 unittest 경로를 담당 표에 추가했다.
+- `python3 -m venv --system-site-packages /private/tmp/multicultural-common-venv`: 생성.
+- `/private/tmp/multicultural-common-venv/bin/pip install --retries 0 pypdf==6.21.4 pytest`: 일반·권한 확장 모두 배포본을 찾지 못해 설치 실패.
+- `PYTHONPATH=backend python3 -m unittest discover -s backend/common_tests -v`: PDF 시그니처 거절 1개 통과, pypdf 필요한 실제 PDF 테스트 4개 건너뜀. PDF 추출 성공 검증 완료가 아니다.
+- `git diff --check`: 통과. 의존성이 설치되는 환경에서 실제 PDF 테스트 및 기존 MySQL 회귀 검증이 병합 전 필요하다.

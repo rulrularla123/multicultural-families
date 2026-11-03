@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { createCase } from '../api/cases'
-import type { DemoAccount, FieldError } from '../types'
+import type { FieldError, UserAccount } from '../types'
 
 type Props = {
-  account: DemoAccount
+  account: UserAccount
   onCreated: () => void
   onCancel: () => void
 }

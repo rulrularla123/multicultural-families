@@ -142,3 +142,22 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 | `/private/tmp/multicultural-router-venv/bin/python -m pytest -q` (backend/) | pytest 모듈 없음으로 실행 불가 |
 
 기존 pytest·MySQL 통합 검증은 의존성 설치 불가로 실행하지 못했다. AST 비교는 테스트 통과를 대신하지 않는다. 병합 전에 전용 MySQL 테스트 DB에서 backend/README의 pytest 명령으로 기존 테스트 통과 확인이 필요하다. CI·PDF 추출·LLM 클라이언트는 다음 PR 범위다.
+
+
+## 2026-11-03 서버 CI 구성 (구조 분리 후속 PR)
+
+- 브랜치: `feat/backend-ci-jhlarry1109`. 구조 분리 브랜치 `6af4c0f`에서 분기했다. 첫 PR 병합 전에는 비교 기준을 `feat/router-structure-jhlarry1109`로 잡는다.
+- `.github/workflows/backend-tests.yml`: PR·main 푸시·수동 실행에서 Python 3.11, MySQL 8.4 일회용 서비스로 기존 테스트를 실행하도록 구성했다. DB명은 `preparation_test`, 포트는 동적 배정이다.
+- 기존 requirements.txt의 27개 고정 버전은 유지하고 출처·갱신 원칙 주석만 추가했다. 현재 환경에서 설치 재현이 끝나지 않았으므로 의존성 확정·CI 통과로 보고하지 않는다.
+- 기존 테스트·기대값·앱·모델은 변경하지 않았다. 공식 인수 테스트와 팀원별 확인은 별도다.
+
+| 실행한 명령·검사 | 실제 결과 |
+| --- | --- |
+| `git fetch origin` (권한 확장) | github.com 주소 해석 실패 |
+| PyYAML BaseLoader로 workflow 파싱·assert 검사 | 트리거 3종, MySQL 8.4, `_test` DB명, pytest 단계, 읽기 권한 확인 |
+| requirements 항목 Python 검사 | 중복 없는 27개 패키지, 전부 정확한 버전 고정 |
+| `/private/tmp/multicultural-router-venv/bin/pip install --retries 0 -r backend/requirements.txt` (권한 확장) | `annotated-doc==0.0.5` 배포본을 찾지 못해 실패. 네트워크·인덱스 및 버전 존재 여부 추가 확인 필요 |
+| `/private/tmp/multicultural-router-venv/bin/python -m pytest -q` (backend/) | pytest 모듈 없음으로 실패 |
+| `git diff --check` | 공백 오류 없음 |
+
+YAML 파싱은 GitHub Actions 실행 검증이 아니다. 원격 연결 복구 뒤 CI 실행에서 패키지 설치 및 기존 MySQL 테스트 통과를 확인해야 한다. 패키지 버전을 추측해 바꾸지 않았다.

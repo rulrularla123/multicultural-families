@@ -125,3 +125,14 @@ backend/tests는 이번 구현자가 검증에 사용한 보조 자료다. 다�
 ## 최신 원격 작업과의 대조 (2026-11-02)
 
 origin/main은 여전히 공유 양식 상태다. 새로 확인한 PM 작업 브랜치 `docs/first-feature-hyun731`의 first-feature는 US-01을 선택하고 있다. 이번 US-04는 사용자가 별도로 선택한 반려 서버 작업이며 팀의 첫 기능을 US-04로 변경하는 PR이 아니다. US-01 범위와 병합 순서·서버 폴더·API 계약을 PM·테크리더와 맞춘 뒤 통합한다. 해당 PM 브랜치를 이 작업에 병합하거나 공유 문서를 덮어쓰지 않았다.
+
+
+## 서버 자동 검사 (CI)
+
+[Backend tests](../.github/workflows/backend-tests.yml)는 PR, main 푸시, 수동 실행에서 동작하도록 구성했다. PR 대상 브랜치를 제한하지 않아 구조 분리 PR 위의 후속 PR도 검사한다.
+
+- 실행 환경: Ubuntu 24.04, Python 3.11, 일회용 MySQL 8.4 서비스 컨테이너.
+- 순서: `python -m pip install -r requirements.txt` → `python -m pip check` → `python -m pytest -q` (모두 backend/).
+- DB는 작업마다 생성하는 `preparation_test`만 사용한다. 접속 정보는 CI 컨테이너 전용 모의 값이며 저장소 Secrets나 개발 DB가 필요 없다. 기존 테스트의 `_test` DB 이름 검사와 데이터 초기화 규칙을 유지한다.
+- requirements.txt는 기존 US-04 고정 버전을 유지했다. 새 패키지 추가·버전 변경은 설치와 테스트 결과를 함께 검토한다.
+- CI 파일을 추가한 것과 CI 통과는 다르다. 실제 실행 여부와 결과는 PR의 Backend tests 검사에서 확인한다. 테스트 담당의 공식 인수 테스트와 팀원별 실행 확인을 대신하지 않는다.

@@ -21,7 +21,7 @@
 
 .my-cases button:focus-visible,
 .case-form input:focus-visible,
-.case-form select:focus-visible,
+.field select:focus-visible,
 .case-form textarea:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
@@ -74,4 +74,8 @@
   background: var(--background);
   color: var(--text);
   font: inherit;
+}
+
+.cancel-button {
+  margin-left: var(--space);
 }

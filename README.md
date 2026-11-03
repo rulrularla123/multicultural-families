@@ -49,13 +49,13 @@
 | 2-2 | [docs/team/claude-rules.md](docs/team/claude-rules.md) | 팀 규칙 합의 기록 | ☐ |
 | 2-2 | [.claude/agents/](.claude/agents/) | stack-advisor, prd-writer | ☐ |
 | 2-2 | [docs/decisions/scaffold-log.md](docs/decisions/scaffold-log.md) | 뼈대 계획·실행 결과·막힌 지점 | ☐ |
-| 3-1 | [docs/decisions/prd-review.md](docs/decisions/prd-review.md) | PRD 검토 지적과 팀 판단 | 작성 · 판단은 팀 확인 전 |
-| 3-1 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) | 데이터 구조·상태값·시드 데이터 | ☐ |
-| 3-1 | [docs/DESIGN.md](docs/DESIGN.md) | UI 디자인 방향·토큰·화면 목록 | ☐ |
-| 3-1 | [docs/CODE-STYLE.md](docs/CODE-STYLE.md) | 팀 코딩 스타일 | ☐ |
-| 3-1 | [docs/decisions/mcp-use.md](docs/decisions/mcp-use.md) | MCP를 고른 이유(또는 고르지 않은 이유), 설치, 연결 확인, 사용 기록 | ☐ |
-| 3-1 | [docs/decisions/first-feature.md](docs/decisions/first-feature.md) | 우리가 고른 첫 기능과 범위, 실행 확인 | US-01로 결정 · 3절은 각자 채움 |
-| 3-1 | [docs/API.md](docs/API.md) | 화면·서버가 주고받는 약속 (기능 1항목) | US-01 1항목 · 제안(합의 전) |
+| 3-1 | [docs/decisions/prd-review.md](docs/decisions/prd-review.md) | PRD 검토 지적과 팀 판단 | ☑ 지적 8개 판단 (PM 결정) · PRD v1.0 반영 |
+| 3-1 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) | 데이터 구조·상태값·시드 데이터 | 작성 · US-01·US-04 모델, 팀 합의 전 |
+| 3-1 | [docs/DESIGN.md](docs/DESIGN.md) | UI 디자인 방향·토큰·화면 목록 | 초안 · 토큰 5개·화면 9개, 팀 합의 전 |
+| 3-1 | [docs/CODE-STYLE.md](docs/CODE-STYLE.md) | 팀 코딩 스타일 | 초안 · 규칙 8개·담당 폴더, 합의일 미기입 |
+| 3-1 | [docs/decisions/mcp-use.md](docs/decisions/mcp-use.md) | MCP를 고른 이유(또는 고르지 않은 이유), 설치, 연결 확인, 사용 기록 | 작성 · Context7 선택 (#47) |
+| 3-1 | [docs/decisions/first-feature.md](docs/decisions/first-feature.md) | 우리가 고른 첫 기능과 범위, 실행 확인 | US-01 서버·화면 연결 (#70) · 3절 실행 확인 1/5 |
+| 3-1 | [docs/API.md](docs/API.md) | 화면·서버가 주고받는 약속 (기능 1항목) | 5항목 합의 (생성·목록·상세·반려·취소) · 오류 형식은 #71 |
 | 3-1 | [.claude/agents/](.claude/agents/) | prd-reviewer | ☑ PRD v0.1 검토에 사용 |
 | 3-1 | `logs/daily/YYYY-MM-DD-이름.md` | 수업일마다 쓰는 개인 작업 기록 | 사람마다 작성 |
 

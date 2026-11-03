@@ -162,3 +162,13 @@ STACK의 A안을 기준으로 빈 프로젝트 실행까지의 범위를 정리�
 - `python3 -c 'import pydantic,httpx; print(pydantic.__version__,httpx.__version__)'`: 로컬 사용 가능 버전 2.13.5 / 0.28.1. 저장소 고정 환경 재현과 구분한다.
 - `PYTHONPATH=backend python3 -m unittest discover -s backend/common_tests -v`: 17개 중 13개 통과, PDF 라이브러리가 필요한 4개 건너뜀. LLM 테스트 12개에는 모의 HTTP 본문, 차단, 타임아웃 취소, 오류 응답·형식·근거 확인이 포함된다.
 - `git diff --check`: 통과. 실제 Gemini·고정 의존성 전체·MySQL 회귀 검증은 미실행이다.
+
+
+## 2026-11-03 공통 모듈 CI 후속 작업
+
+- `feat/common-modules-ci-jhlarry1109`는 PDF → LLM 순서의 후속 브랜치다. 과거 feat/backend-ci-jhlarry1109의 CI 구성을 최신 main #72 및 공통 모듈에 맞춰 재사용했다. 과거 CI 브랜치를 별도로 병합하지 않는다.
+- Python 3.11·MySQL 8.4 일회용 서비스에서 설치 → pip check → common_tests unittest → 기존 pytest 순서로 구성했다. 기존 requirements 버전과 python-multipart 추가분을 보존했다.
+- `/private/tmp/multicultural-common-venv/bin/pip install --index-url https://pypi.org/simple --retries 0 pypdf==6.21.4`: 명시적 공식 인덱스 재시도도 배포본 없음으로 실패.
+- PyYAML BaseLoader 파싱 및 DB명·버전·단위/통합 테스트 단계 검사: 통과.
+- `git diff --check`: 통과. 실제 Actions·MySQL 테스트·고정 의존성 전체 설치는 미검증이다.
+- Criterion·PreparationItem 모델이 없어 기준 등록·US-06 서버 구현은 진행하지 않았다. models.py는 김민건 담당으로 유지했다. 담당 router 파일명과 API 계약은 모델 확정 뒤 맞춘다.

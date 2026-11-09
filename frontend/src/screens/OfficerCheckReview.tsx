@@ -37,7 +37,7 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
   const [busy, setBusy] = useState<'review' | 'approve' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [savedNotice, setSavedNotice] = useState(false)
-  const [newCount, setNewCount] = useState(0)
+  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -47,6 +47,8 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
         setResult(loaded)
         setRows(toRows(loaded))
         setReason(loaded.review_reason ?? '')
+        setConfirmed(loaded.can_approve)
+        setDirty(false)
         setLoadError(null)
       })
       .catch((error: unknown) => {
@@ -63,14 +65,15 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
   const update = (index: number, patch: Partial<Row>) => {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)))
     setSavedNotice(false)
+    setDirty(true)
   }
   const addRow = () => {
     setRows((current) => [...current, {
-      id: `new-${newCount + 1}`, kind: 'additional_documents', text: '', criterion_id: criterionIds[0] ?? '',
+      id: crypto.randomUUID(), kind: 'additional_documents', text: '', criterion_id: criterionIds[0] ?? '',
       translated_text: '', removed: false,
     }])
-    setNewCount((value) => value + 1)
     setSavedNotice(false)
+    setDirty(true)
   }
 
   const handleReview = async (event: FormEvent) => {
@@ -97,6 +100,7 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
   }
 
   const handleApprove = async () => {
+    if (dirty || !result.can_approve) return
     setBusy('approve')
     setActionError(null)
     try {
@@ -163,10 +167,10 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
 
         <div className="field">
           <label htmlFor="review-reason">처리 사유 (근거와 수정·삭제·실패 해소 사유)</label>
-          <textarea id="review-reason" rows={3} value={reason} disabled={busy !== null} onChange={(e) => setReason(e.target.value)} />
+          <textarea id="review-reason" rows={3} value={reason} disabled={busy !== null} onChange={(e) => { setReason(e.target.value); setDirty(true); setSavedNotice(false) }} />
         </div>
         <label className="confirm-toggle">
-          <input type="checkbox" checked={confirmed} disabled={busy !== null} onChange={(e) => setConfirmed(e.target.checked)} />
+          <input type="checkbox" checked={confirmed} disabled={busy !== null} onChange={(e) => { setConfirmed(e.target.checked); setDirty(true); setSavedNotice(false) }} />
           베트남어 번역문을 확인했습니다
         </label>
         <button type="submit" disabled={busy !== null || incomplete}>
@@ -176,8 +180,9 @@ export function OfficerCheckReview({ caseId, onApproved }: Props) {
 
       {savedNotice && <p role="status">검토를 저장했습니다.</p>}
       {actionError && <p className="error" role="alert">{actionError}</p>}
+      {dirty && <p role="status">변경한 검토 내용을 먼저 저장한 뒤 승인하세요.</p>}
       {!result.can_approve && <p>검토를 저장하고 확인 필요·자동 점검 실패가 모두 해소되어야 승인할 수 있습니다.</p>}
-      <button type="button" onClick={handleApprove} disabled={busy !== null || !result.can_approve}>
+      <button type="button" onClick={handleApprove} disabled={busy !== null || !result.can_approve || dirty}>
         {busy === 'approve' ? '승인하는 중' : '승인'}
       </button>
     </div>

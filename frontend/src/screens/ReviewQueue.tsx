@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { errorMessage } from '../api/cases'
-import { listReviewQueue } from '../api/mockReviewQueue'
+import { errorMessage, listReviewQueue } from '../api/cases'
 import type { ReviewQueueItem } from '../types'
 
 const dateFormat = new Intl.DateTimeFormat('ko-KR', {

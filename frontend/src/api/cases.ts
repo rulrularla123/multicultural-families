@@ -1,5 +1,6 @@
 import type {
-  CancelResult, CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, UserAccount,
+  CancelResult, CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, ReviewQueueItem,
+  UserAccount,
 } from '../types'
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
@@ -100,6 +101,17 @@ export async function cancelCase(caseId: number, account: UserAccount): Promise<
   })
   if (!response.ok) throw await serverError(response)
   return (await response.json()) as CancelResult
+}
+
+// 검토 대기 목록 (F-09): GET /review-queue, 담당자만
+export async function listReviewQueue(signal?: AbortSignal): Promise<ReviewQueueItem[]> {
+  const response = await fetch(`${apiBase}/review-queue`, {
+    headers: { 'X-Demo-Account': 'demo-officer' }, signal,
+  })
+  if (!response.ok) throw await serverError(response)
+  const body: unknown = await response.json()
+  if (!Array.isArray(body)) throw new Error('검토 대기 목록 응답을 확인하지 못했습니다.')
+  return body as ReviewQueueItem[]
 }
 
 // DESIGN.md 오류 상태: 401은 모의 계정 선택 안내, 403은 권한 없음만 보여 준다.

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useEffect, useState } from 'react'
 import { SupplementScreen } from './SupplementScreen'
 import { ApiError, cancelCase, errorMessage, getCase } from '../api/cases'
 import { startCheck } from '../api/workflow'

@@ -181,3 +181,55 @@ def test_us04_invalid_case_id_is_rejected_before_database_access(client, factory
     assert client.get(f"/cases/{case_id}", headers=OFFICER).status_code == 422
     assert client.post(f"/cases/{case_id}/reject", headers=OFFICER, json={"reason": "수정"}).status_code == 422
     assert snapshot(factory) == before
+
+
+def test_us04_criteria_recheck_history_is_not_a_rejection_reason(client, factory):
+    """US-04 반려 사유 조회: 기준 변경으로 준비중에 돌아간 이력은 반려가 아니다."""
+    from app.dependencies import DemoActor
+    from app.workflow import history
+
+    with factory.begin() as session:
+        case = session.get(PreparationCase, 1001)
+        history(session, case, DemoActor("demo-officer", "officer"), CaseStatus.PREPARING,
+                reason="기준 버전 변경으로 이전 결과를 무효화하고 재점검")
+    response = client.get("/cases/1001", headers=OWNER)
+    assert response.status_code == 200
+    assert response.json()["status"] == "준비중"
+    assert response.json()["rejection_reason"] is None
+
+
+def test_us04_actual_rejection_reason_survives_later_recheck_history(client, factory):
+    """US-04: 마지막 실제 반려 사유를 재점검 시스템 이력으로 덮어쓰지 않는다."""
+    from app.dependencies import DemoActor
+    from app.workflow import history
+
+    assert client.post("/cases/1001/reject", headers=OFFICER, json={"reason": "모의 서류를 수정하세요"}).status_code == 200
+    with factory.begin() as session:
+        case = session.get(PreparationCase, 1001)
+        history(session, case, DemoActor("demo-officer", "officer"), CaseStatus.PREPARING,
+                reason="기준 버전 변경으로 재점검")
+    assert client.get("/cases/1001", headers=OWNER).json()["rejection_reason"] == "모의 서류를 수정하세요"
+
+
+def test_us04_legacy_rejection_without_action_remains_visible(client, factory):
+    """기존 모의 DB의 action=NULL 반려 이력도 사유를 보존한다."""
+    assert client.post("/cases/1001/reject", headers=OFFICER, json={"reason": "이전 반려 사유"}).status_code == 200
+    with factory.begin() as session:
+        session.scalar(select(CaseHistory).where(CaseHistory.case_id == 1001)).action = None
+    assert client.get("/cases/1001", headers=OWNER).json()["rejection_reason"] == "이전 반려 사유"
+
+
+def test_us04_action_schema_upgrade_preserves_legacy_history(engine, client, factory):
+    """기존 DB 이력에 구분 필드를 추가해도 원문·조회 결과를 유지한다."""
+    from sqlalchemy import text
+    from app.database import prepare_workflow_schema
+
+    assert client.post("/cases/1001/reject", headers=OFFICER, json={"reason": "보존할 반려 사유"}).status_code == 200
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE case_histories DROP COLUMN action"))
+        assert prepare_workflow_schema(engine) == ["case_histories.action 추가"]
+        assert prepare_workflow_schema(engine) == []
+        assert client.get("/cases/1001", headers=OWNER).json()["rejection_reason"] == "보존할 반려 사유"
+    finally:
+        prepare_workflow_schema(engine)

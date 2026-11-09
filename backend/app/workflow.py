@@ -50,11 +50,11 @@ def versions_match(session, case, recorded):
     return bool(recorded) and recorded == versions(current) and all(c.is_verified for c in current)
 
 
-def history(session, case, actor, to_status, reason="", criterion_versions=None):
+def history(session, case, actor, to_status, reason="", criterion_versions=None, *, action="transition"):
     now = utc_now()
     session.add(CaseHistory(
         case_id=case.id, from_status=case.status, to_status=to_status.value,
-        actor_id=actor.id, actor_role=actor.role, reason=reason,
+        actor_id=actor.id, actor_role=actor.role, reason=reason, action=action,
         criterion_versions=criterion_versions or [], occurred_at=now,
     ))
     case.status = to_status.value

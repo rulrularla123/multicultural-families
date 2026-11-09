@@ -4,7 +4,7 @@
 - 작성일: 2026-11-02
 - 수정일: 2026-11-09 (US-02·03·05·07 공유 모델·서버 연결)
 - 작성: 김민건 / 개발자1 업무
-- 상태: 기존 생성·목록·상세·반려 계약을 유지하고 점검·승인·체크·완료 모델과 담당 서버를 추가했다. 베트남어(vi)·담당자 번역 확인은 사용자 결정이다. 생성 화면의 언어 선택 추가는 별도 담당 작업이며 이번 변경에 포함하지 않는다.
+- 상태: 기존 생성·목록·상세·반려 계약을 유지하고 점검·승인·체크·완료 모델과 담당 서버를 추가했다. 베트남어(vi)·담당자 번역 확인은 사용자 결정이다. 신규 생성 시 표시 언어 vi 필수 입력은 main #92에 반영됐다. 이번 후속 수정은 재점검·반려 이력 구분과 연동 검증이다.
 - 근거: [PRD 6·7절](PRD.md#6-데이터-구조), [선정 주제 B 상태 흐름](domain/03-rules-states-llm.md#선정-주제-b의-상태-흐름), [백로그 US-01](requirements/backlog.md#us-01-상황-설명과-서류로-준비-건-만들기)·[US-04](requirements/backlog.md#us-04-담당자가-분석-결과를-반려하기).
 
 ## 모델과 필드
@@ -16,7 +16,7 @@
 | PreparationCase (절차 준비 건) | id | BIGINT UNSIGNED, PK | 예 | 준비 건 ID. 시드에서는 고정 ID 사용 | F-01·F-04 |
 | PreparationCase | owner_id | VARCHAR(64) | 예 | 모의 이용자 식별자. 담당자 역할은 서버가 별도 판단 | F-01·F-04 |
 | PreparationCase | situation | TEXT | 예 | 생성 API의 원문 입력. 공백·줄바꿈을 포함한 Unicode 코드 포인트 1~1,000자. 공백만 입력하면 거절 | F-01·F-04 |
-| PreparationCase | display_language | VARCHAR(32), NULL 허용 | 후속 선택 시 | US-01 입력에서 제외하고 NULL 저장. 기존 시드 언어는 유지 | F-05 |
+| PreparationCase | display_language | VARCHAR(32), NULL 허용 | 신규 생성 시 | US-01은 vi를 필수 입력·저장. DB NULL은 이전 모의 행 호환용. 새 승인은 담당자가 확인한 베트남어 번역 필수 | F-05 |
 | PreparationCase | status | VARCHAR(32) | 예 | 생성 시 준비중, 아래 한글 상태값 8개만 허용 | F-01·F-04 |
 | Attachment (첨부 서류) | id | BIGINT UNSIGNED, PK | 예 | 첨부 식별자. 서버 발급 | F-01 |
 | Attachment | case_id | BIGINT UNSIGNED, FK | 예 | 소속 준비 건. 고아 첨부와 임의의 연쇄 삭제 방지 | F-01 |
@@ -29,6 +29,7 @@
 | CheckResult | criterion_versions | JSON 배열 | 예 | 점검 당시 기준 ID·버전 스냅샷. 반려 이력에 보존 | F-02·F-04 |
 | CheckResult | invalidated_at | DATETIME(6), NULL 허용 | 반려 시 | 반려 시 기록. 이전 초안을 현재 결과로 쓰지 않음 | F-04 |
 | CaseHistory (처리 이력) | case_id | BIGINT UNSIGNED, FK | 예 | 소속 준비 건 | F-04·F-08 |
+| CaseHistory | action | VARCHAR(32), NULL 허용 | 새 기록 시 | rejection=실제 반려, transition=그 밖의 전이. 기존 NULL 반려 기록은 승인 대기→준비중·담당자 조건으로 조회 | F-04 |
 | CaseHistory | from_status | VARCHAR(32) | 예 | 반려 전 담당자 승인 대기 | F-04 |
 | CaseHistory | to_status | VARCHAR(32) | 예 | 반려 후 준비중 | F-04 |
 | CaseHistory | actor_id | VARCHAR(64) | 예 | 실제 권한 검사에 사용한 담당자 모의 계정 ID | F-04 |
@@ -96,7 +97,7 @@
 | PreparationCase·모의 계정 | owner_id, 계정 ID·이메일 | 분석에 불필요한 계정 정보 |
 | PreparationCase·Attachment | 식별정보가 있는 상황·추출 텍스트, PDF 원본 바이너리 | 기존 제안서·03 문서의 전송 금지 대상. 실제 서류는 사용하지 않음 |
 | CaseHistory | reason, actor_id | 반려 사유에 식별정보가 섞일 수 있고 처리자 ID는 분석에 불필요 |
-| 내부 모델 | 내부 PK·FK·점검 작업 식별자 | 내부 연결과 권한은 서버에서 관리. 근거 기준 ID·버전의 허용 범위와 얼구분 |
+| 내부 모델 | 내부 PK·FK·점검 작업 식별자 | 내부 연결과 권한은 서버에서 관리. 근거 기준 ID·버전의 허용 범위와 구분 |
 
 US-02는 식별정보 검사를 통과한 상황·페이지 텍스트·지원 유형·등록 기준만 LLM에 전달한다. 반려 사유·파일명·계정·점검 작업 ID·PDF 원본은 전송하지 않는다. 실제 Gemini 호출 검증은 수행하지 않았으며 기본 연결은 모의 Transport다.
 
@@ -119,7 +120,7 @@ US-02는 식별정보 검사를 통과한 상황·페이지 텍스트·지원 �
 | 항목 | 누가 언제 정하나 |
 | --- | --- |
 | 공유 API 문서·화면 연결 반영 | 기존 US-01·04 계약은 유지. 후속 [서버 계약 전달안](../backend/WORKFLOW-API.md)을 PM·화면·테스트 담당에게 전달. 팀 합의를 수행했다고 표시하지 않음 |
-| 생성 시 표시 언어 선택 | 베트남어(vi), 번역문은 담당자 확인으로 사용자 결정. 생성 API·화면 언어 선택은 별도 담당 작업. 현재 생성 API는 유지하고 담당자 검토 시 vi와 확인된 번역문을 저장 |
+| 생성 시 표시 언어 선택 | 베트남어(vi), 번역문은 담당자 확인으로 사용자 결정. 생성 API·화면 vi 선택은 main #92 반영. 기존 NULL 모의 건은 담당자 검토 시 vi와 확인된 번역문을 저장 |
 | 원본·취소 건의 보관 기간 | 이번에는 원본을 비공개 DB에 보존하고 임의의 삭제 기능을 만들지 않음. 실제 자료 처리 전 정책은 클라이언트·팀이 결정 |
 | 공통 환경·테스트 담당과 연결 | 기존 민건 담당 case_detail.py를 사용해 새 파일 등록은 불필요. 코드 포인트 길이·원문 보존 기준과 multipart 의존성을 PM·테크리더·테스트 담당에게 전달 |
 | 실제 자료·PDF·이력 보관·삭제 정책 | 팀·클라이언트가 실제 자료 처리 전에 결정. 이번 모의 반려 기능에서는 삭제 기능을 추가하지 않음 |

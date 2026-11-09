@@ -97,6 +97,7 @@ class CaseHistory(Base):
     to_status: Mapped[str] = mapped_column(String(32), nullable=False)
     actor_id: Mapped[str] = mapped_column(String(64), nullable=False)
     actor_role: Mapped[str] = mapped_column(String(16), nullable=False)
+    action: Mapped[str | None] = mapped_column(String(32))
     reason: Mapped[str] = mapped_column(LONGTEXT, nullable=False)
     criterion_versions: Mapped[list] = mapped_column(JSON, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6), default=utc_now, nullable=False)

@@ -43,3 +43,11 @@ export type RejectResult = {
   reason: string
   rejected_at: string
 }
+
+// API.md 항목 5
+export type CancelResult = {
+  case_id: number
+  status: string
+  previous_status: string
+  canceled_at: string
+}

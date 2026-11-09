@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { cancelCase, errorMessage, getCase } from '../api/cases'
+import { ApiError, cancelCase, errorMessage, getCase } from '../api/cases'
+import { startCheck } from '../api/workflow'
 import type { CancelResult, CaseDetail, UserAccount } from '../types'
+import { ApprovedResultView } from './ApprovedResultView'
 
 type Props = {
   caseId: number
@@ -16,6 +18,26 @@ const REVIEW_STATES = ['자동 점검중', '담당자 승인 대기']
 // US-08: 진행 중 6개 상태만 취소할 수 있고, 끝 상태는 읽기 전용이다.
 const CANCELABLE_STATES = ['준비중', '자동 점검중', '담당자 승인 대기', '서류 준비중', '준비 확인 요청', '보완 요청']
 const FINISHED_STATES = ['준비 확인 완료', '취소 완료']
+// US-03: 승인 뒤에만 승인 결과를 연다. 승인 전에는 "담당자 검토 중"만 보인다.
+const APPROVED_STATES = ['서류 준비중', '준비 확인 요청', '보완 요청', '준비 확인 완료']
+
+// US-02 (실패·거절): 식별정보·추출 실패는 위치와 수정 안내를 보여 준다. 값은 서버가 돌려주지 않는다.
+function checkErrorMessage(error: unknown): string {
+  const base = errorMessage(error)
+  if (!(error instanceof ApiError) || !error.detail || typeof error.detail !== 'object' || Array.isArray(error.detail)) {
+    return base
+  }
+  type Place = { kind?: string; source?: string; file_name?: string | null; page?: number | null }
+  const detail = error.detail as Place & { locations?: Place[] }
+  const describe = (place: Place) => {
+    if (place.file_name) return `${place.file_name}${place.page ? ` ${place.page}쪽` : ''}`
+    return '상황 설명'
+  }
+  const places = detail.locations
+    ? detail.locations.map((place) => `${describe(place)}${place.kind ? `(${place.kind})` : ''}`)
+    : detail.file_name ? [describe(detail)] : []
+  return places.length > 0 ? `${base} 위치: ${places.join(', ')}` : base
+}
 
 const dateFormat = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -30,6 +52,9 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
   const [canceling, setCanceling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [canceled, setCanceled] = useState<CancelResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [checkNotice, setCheckNotice] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -66,6 +91,22 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
     }
   }
 
+  const handleCheck = async () => {
+    setChecking(true)
+    setCheckError(null)
+    setCheckNotice(null)
+    try {
+      const result = await startCheck(caseId, account)
+      setCheckNotice(result.discarded ? '이전 점검 결과는 반영하지 않았습니다.' : '자동 점검을 마쳤습니다. 담당자 검토 중입니다.')
+      setRevision((value) => value + 1)
+      onChanged()
+    } catch (error: unknown) {
+      setCheckError(checkErrorMessage(error))
+    } finally {
+      setChecking(false)
+    }
+  }
+
   return (
     <section className="case-detail" aria-labelledby="case-detail-title">
       <h2 id="case-detail-title">준비 건 상태</h2>
@@ -92,6 +133,16 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
             </>
           )}
         </dl>
+      )}
+      {detail && detail.status === '준비중' && (
+        <button type="button" onClick={handleCheck} disabled={checking || canceling}>
+          {checking ? '점검하는 중' : '자동 점검 시작'}
+        </button>
+      )}
+      {checkNotice && <p role="status">{checkNotice}</p>}
+      {checkError && <p className="error" role="alert">{checkError}</p>}
+      {detail && APPROVED_STATES.includes(detail.status) && (
+        <ApprovedResultView key={revision} caseId={caseId} account={account} />
       )}
       {canceled && (
         <p role="status">

@@ -91,7 +91,107 @@
 | 관련 인수 조건 | US-08 전부 |
 | 화면이 쓰는 곳 | 준비 건 상태·취소 |
 
-서버 코드는 #67로 병합됐지만 `main.py`에 아직 연결되지 않았다.
+
+## 항목 6: 자동 점검 시작 (기능 ID: F-03·F-09 / 스토리: US-02)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/check`, 본문 없음 |
+| 입력 | 없음. 생성 뒤 화면이 이 요청을 보낸다(생성 시 자동 시작은 없음) |
+| 출력 (성공) | `200`, `{case_id, status: "담당자 승인 대기", discarded: false, message: "담당자 검토 중"}`. 분석 본문·실패 원문은 이용자에게 돌려주지 않는다. 늦게 온 결과는 `{case_id, status: 현재 상태, discarded: true}`로 돌려주고 저장하지 않는다 |
+| 실패 응답 | 422 PDF 추출 실패·식별정보 발견(위치와 수정 안내, 값은 돌려주지 않음, 준비중 유지). 409 적용 기준 없음·미검증 기준(LLM 호출 안 함). LLM 오류·60초 초과·형식 오류는 실패가 아니라 "자동 점검 실패"로 기록하고 담당자 승인 대기로 보낸다 |
+| 권한 (누가 못 하나) | 해당 건의 이용자만. 담당자가 로그인하지 않아도 동작한다 |
+| 바뀌는 상태 | 준비중 → 자동 점검중 → 담당자 승인 대기 |
+| 관련 인수 조건 | US-02 전부 |
+| 화면이 쓰는 곳 | 내 준비 건 / 준비 건 상태 |
+
+## 항목 7: 점검 결과 조회 (기능 ID: F-03 / 스토리: US-02)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `GET /cases/{case_id}/check-result` |
+| 출력 (성공) | `200`, `{case_id, result_id, status, analysis_items, reviewed_items, failure_reason, review_reason, situation_version, document_version, criterion_versions, can_approve}`. 항목은 `{id, kind(cautions·possible_omissions·additional_documents), text, criterion_id, source, checked_on, needs_confirmation}`. 출처·확인일은 등록 기준에서 붙인다 |
+| 실패 응답 | 401, 403(이용자는 본인 건도), 404, 409(현재 작업·버전과 다름) |
+| 권한 (누가 못 하나) | 담당자만 |
+| 바뀌는 상태 | 없음 |
+| 관련 인수 조건 | US-02 (권한), US-03 (LLM) 1 |
+| 화면이 쓰는 곳 | 자동 점검 결과, 검토·승인 (담당자) |
+
+## 항목 8: 담당자 검토·번역 확인 (기능 ID: F-04 / 스토리: US-03)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/review`, JSON |
+| 입력 | `{result_id, reason, translation_confirmed: true, items: [{id, kind, text, criterion_id, translated_text}]}`. 최종 항목 전체를 보낸다(1~100개, ID 중복 금지). 각 항목에 등록 기준 ID와 베트남어 번역문 필수 |
+| 출력 (성공) | `200`. 원본 분석은 보존하고 검토한 항목을 따로 저장한다. 상태는 바뀌지 않는다 |
+| 실패 응답 | 422 빈 목록·미확인 번역·근거 없는 항목·빈 사유·식별정보 패턴. 409 승인 대기가 아니거나 result_id가 현재 결과가 아님 |
+| 권한 (누가 못 하나) | 담당자만 |
+| 바뀌는 상태 | 없음. 담당자·시간·근거 버전·최종 항목·삭제 항목·처리 사유를 이력에 남긴다 |
+| 관련 인수 조건 | US-03 (정상) 3, (실패·거절) 1 |
+| 화면이 쓰는 곳 | 검토·승인 (담당자) |
+
+## 항목 9: 승인 (기능 ID: F-04·F-05 / 스토리: US-03)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/approve`, JSON `{result_id}` |
+| 출력 (성공) | `200`, `{case_id, approval_id, status: "서류 준비중", approved_at, bilingual_ready: true}`. 승인된 항목으로 준비 항목(준비 여부 미선택)을 만든다 |
+| 실패 응답 | 409 미해결 자동 점검 실패·확인 필요·미확인 번역·버전 불일치·승인 대기 아님. 상태 불변 |
+| 권한 (누가 못 하나) | 담당자만. 이용자·다른 이용자 403 |
+| 바뀌는 상태 | 담당자 승인 대기 → 서류 준비중 |
+| 관련 인수 조건 | US-03 전부 |
+| 화면이 쓰는 곳 | 검토·승인 (담당자) |
+
+## 항목 10: 승인 결과·준비 항목 조회 (기능 ID: F-05·F-06 / 스토리: US-03·US-05)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `GET /cases/{case_id}/approved-result` |
+| 출력 (성공) | `200`, `{case_id, approval_id, status, display_language: "vi", bilingual_ready, items, preparation_items, not_prepared_count, approved_at, completion_notice}`. `items`는 승인된 한국어·베트남어·출처·확인일. `preparation_items`는 `{id, item_key, text, translated_text, criterion_id, prepared(null·false·true), needs_confirmation, supplement_reason, supplement_resolved}` |
+| 실패 응답 | 401, 403(다른 이용자), 404, 409(승인 전·취소 건, 승인 뒤 버전이 바뀐 진행 중 건) |
+| 권한 (누가 못 하나) | 소유자·담당자만. 승인 전 초안·검토 사유·담당자 계정은 들어 있지 않다 |
+| 바뀌는 상태 | 없음 |
+| 관련 인수 조건 | US-03 (정상) 2, US-05 (정상) 1 |
+| 화면이 쓰는 곳 | 승인 결과, 준비 항목 체크 (이용자) |
+
+## 항목 11: 준비 체크 저장 (기능 ID: F-06 / 스토리: US-05)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/preparation-items`, JSON `{items: [{id, prepared}]}` |
+| 입력 | `prepared`는 `true`(준비함)·`false`(아직)만. 일부 항목만 보내도 된다 |
+| 실패 응답 | 422 null·문자열·숫자, 중복 ID, 다른 건의 항목(전체 거절, 일부만 저장하지 않음). 409 서류 준비중 아님 |
+| 권한 (누가 못 하나) | 해당 건의 이용자만 |
+| 바뀌는 상태 | 없음 |
+| 관련 인수 조건 | US-05 (정상) 1, (권한) |
+| 화면이 쓰는 곳 | 준비 항목 체크 |
+
+## 항목 12: 확인 요청 (기능 ID: F-06 / 스토리: US-05)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/request-confirmation`, 본문 없음 |
+| 출력 (성공) | `200`, `{case_id, status: "준비 확인 요청", requested_at, not_prepared_count}`. "아직" 항목이 있어도 접수 |
+| 실패 응답 | 409 미선택 항목 `{detail: {message, unselected_item_ids}}`, 서류 준비중 아님, 승인 버전 불일치 |
+| 권한 (누가 못 하나) | 해당 건의 이용자만. 다른 이용자·담당자 403 |
+| 바뀌는 상태 | 서류 준비중 → 준비 확인 요청 |
+| 관련 인수 조건 | US-05 전부 |
+| 화면이 쓰는 곳 | 준비 항목 체크 |
+
+## 항목 13: 준비 확인 완료 (기능 ID: F-07 / 스토리: US-07)
+
+| 항목 | 내용 |
+| --- | --- |
+| 요청 (경로·방식) | `POST /cases/{case_id}/complete`, JSON `{notice_translation, translation_confirmed: true}` |
+| 입력 | 담당자가 확인한 베트남어 완료 안내 문구 |
+| 출력 (성공) | `200`, `{case_id, status: "준비 확인 완료", completed_at, notice_ko: "민원 접수나 체류기간 연장 허가가 아닙니다", notice_translation, bilingual_ready: true}`. 완료 안내는 승인 결과 조회(항목 10)에서도 다시 읽을 수 있다 |
+| 실패 응답 | 409 `{detail: {reasons: [...]}}`: 버전 불일치, 미해결 보완·확인 필요, "아직" 항목, 준비 확인 요청 아님. 상태 불변 |
+| 권한 (누가 못 하나) | 담당자만 |
+| 바뀌는 상태 | 준비 확인 요청 → 준비 확인 완료 (끝 상태) |
+| 관련 인수 조건 | US-07 전부 |
+| 화면이 쓰는 곳 | 보완·완료 확인 |
+
+항목 6~13은 김민건이 구현한 서버(#91)와 `backend/WORKFLOW-API.md`를 옮긴 것이다. 화면 담당 확인 전이다. 이 API들의 오류는 `{"detail": ...}` 형식이고, detail은 문자열이거나 위에 적은 객체다.
 
 ### 입력·출력 예시
 ```
@@ -108,4 +208,4 @@
 
 ## 아직 없는 항목
 > 다음 차시에 추가합니다.
-- 자동 점검(US-02), 승인(US-03), 준비 체크(US-05), 보완(US-06), 완료(US-07), 입력 수정·재점검
+- 기준 등록·변경(F-02), 검토 대기 목록(F-09), 보완(US-06), 입력 수정·재점검

@@ -1,9 +1,12 @@
 """인수 테스트용 입력 fixture.
 
 DB fixture(engine, factory, client)는 상위 tests/conftest.py에서 그대로 받는다.
-여기서는 backlog.md US-01 인수 조건의 경계값 입력만 메모리에서 만든다. 파일은 커밋하지 않는다.
-요청 필드 이름·경로는 API.md 항목 1이 합의되면 테스트 쪽에서 붙인다.
+여기서는 backlog.md US-01 인수 조건의 경계값 입력을 메모리에서 만든다. 파일은 커밋하지 않는다.
+아래쪽 LLM fixture는 US-02·03 테스트용이다(app/common/llm_client.py, 이주환 담당. 없으면 해당 테스트만 건너뜀).
 """
+import json
+from datetime import date
+
 import pytest
 
 
@@ -79,3 +82,56 @@ def counted_situations():
 def blank_situations():
     """US-01 (실패·거절) 빈 상황 설명(공백·줄바꿈만 있는 경우 포함)."""
     return ["", "   ", "\n\n", " \n\t "]
+
+
+# --- US-02 LLM 모의 응답 fixture ---------------------------------------------
+# llm_client가 main에 없으면 이 fixture를 쓰는 테스트만 건너뛴다(US-01·04 테스트는 영향 없음).
+
+MOCK_CRITERION_ID = "mock-criterion-1"
+
+
+@pytest.fixture
+def llm():
+    return pytest.importorskip("app.common.llm_client")
+
+
+@pytest.fixture
+def check_input(llm):
+    """식별정보 없는 모의 상황·PDF 추출 텍스트·등록 기준 1개. 실제 공식 출처가 아니다."""
+    return llm.CheckInput(
+        situation="결혼이민자 체류기간 연장을 준비하고 있습니다. 어떤 서류가 더 필요한지 알고 싶습니다.",
+        document_texts=("모의 서류 1쪽: 가족관계 확인용 모의 문서입니다.",),
+        criteria=(llm.CriterionInput(
+            criterion_id=MOCK_CRITERION_ID, body="모의 기준 본문입니다.",
+            source="모의 출처(실제 공식 출처 아님)", checked_on=date(2026, 11, 3),
+        ),),
+    )
+
+
+class RecordingTransport:
+    """LLM에 보낸 요청 본문을 모두 기록한다. 응답은 감싼 transport 또는 고정 문자열."""
+
+    def __init__(self, inner=None, raw=None):
+        self.inner, self.raw, self.payloads = inner, raw, []
+
+    async def generate(self, payload: dict) -> str:
+        self.payloads.append(payload)
+        if self.raw is not None:
+            return self.raw
+        return await self.inner.generate(payload)
+
+    @property
+    def sent_text(self) -> str:
+        return json.dumps(self.payloads, ensure_ascii=False)
+
+
+@pytest.fixture
+def llm_transport(llm):
+    """US-02 모의 응답: mode는 success·error·delay·invalid. 보낸 요청은 .payloads에 남는다."""
+    return lambda mode="success", **kw: RecordingTransport(llm.MockTransport(mode, **kw))
+
+
+@pytest.fixture
+def llm_fixed_response():
+    """US-02 근거 기준 ID 시험용: 정해진 응답(dict)을 그대로 돌려주는 transport."""
+    return lambda body: RecordingTransport(raw=json.dumps(body, ensure_ascii=False))

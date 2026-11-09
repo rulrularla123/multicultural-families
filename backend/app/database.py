@@ -44,6 +44,7 @@ def prepare_workflow_schema(engine: Engine) -> list[str]:
     additions = {
         "preparation_cases": {"office": "VARCHAR(128) NULL"},
         "check_results": {"reviewed_items": "JSON NULL", "review_reason": "TEXT NULL"},
+        "case_histories": {"action": "VARCHAR(32) NULL"},
     }
     for table, definitions in additions.items():
         existing = {c["name"] for c in inspect(engine).get_columns(table)}

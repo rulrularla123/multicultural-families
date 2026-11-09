@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from ..dependencies import DemoActor, get_actor, get_session
@@ -33,7 +33,15 @@ def case_detail(
         raise HTTPException(403, "본인의 준비 건만 볼 수 있습니다.")
     latest_rejection = session.scalar(
         select(CaseHistory)
-        .where(CaseHistory.case_id == case_id, CaseHistory.to_status == CaseStatus.PREPARING.value)
+        .where(
+            CaseHistory.case_id == case_id,
+            CaseHistory.to_status == CaseStatus.PREPARING.value,
+            or_(CaseHistory.action == "rejection", and_(
+                CaseHistory.action.is_(None),
+                CaseHistory.from_status == CaseStatus.REVIEWING.value,
+                CaseHistory.actor_role == "officer",
+            )),
+        )
         .order_by(CaseHistory.id.desc()).limit(1)
     )
     payload = dict(

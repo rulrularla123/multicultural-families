@@ -36,7 +36,7 @@ def reject_case(
         now = utc_now()
         history = CaseHistory(
             case_id=case.id, from_status=case.status, to_status=CaseStatus.PREPARING.value,
-            actor_id=actor.id, actor_role=actor.role, reason=body.reason,
+            actor_id=actor.id, actor_role=actor.role, reason=body.reason, action="rejection",
             criterion_versions=result.criterion_versions if result else [], occurred_at=now,
         )
         case.status = CaseStatus.PREPARING.value

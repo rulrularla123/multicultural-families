@@ -2,7 +2,9 @@
 
 기대값은 backlog.md US-01 인수 조건과 API.md 공통 규칙·항목 1·2에서만 가져온다.
 거절은 422 {ok: false, errors: [{field, reason}]} + 준비 건 수 그대로로 확인한다(API.md 항목 1 실패 응답).
-범위 밖(first-feature 1절): 표시 언어, 다른 이용자 상세 조회 403(2절 5번).
+표시 언어: 첫 데모 모국어가 베트남어로 정해져(2026-11-09, PR #87) 생성 요청에 `display_language`를 더한다.
+값은 "vi"만, 없거나 다른 값이면 422 {field: "display_language"} (2026-11-09 팀 채팅 제안. API.md 반영 전).
+범위 밖(first-feature 1절): 다른 이용자 상세 조회 403(2절 5번).
 """
 import pytest
 from sqlalchemy import func, select
@@ -13,18 +15,19 @@ from app.models import CaseStatus, PreparationCase
 OFFICER = {"X-Demo-Account": "demo-officer"}
 OWNER = {"X-Demo-Account": "demo-user-1"}
 OTHER = {"X-Demo-Account": "demo-user-2"}
+OMIT = object()  # 표시 언어 항목을 요청에서 아예 빼는 경우
 
 
 @pytest.fixture
 def submit(client, pdf_files):
-    """API.md 항목 1 요청: POST /cases, multipart (support_type, situation, files)."""
-    def _submit(*, headers=OWNER, support_type="F-6-1", situation="체류기간 연장 서류를 확인하고 싶습니다.", files=None):
+    """API.md 항목 1 요청: POST /cases, multipart (support_type, situation, display_language, files)."""
+    def _submit(*, headers=OWNER, support_type="F-6-1", situation="체류기간 연장 서류를 확인하고 싶습니다.",
+                display_language="vi", files=None):
         files = pdf_files(1) if files is None else files
-        return client.post(
-            "/cases", headers=headers,
-            data={"support_type": support_type, "situation": situation},
-            files=[("files", f) for f in files],
-        )
+        data = {"support_type": support_type, "situation": situation}
+        if display_language is not OMIT:
+            data["display_language"] = display_language
+        return client.post("/cases", headers=headers, data=data, files=[("files", f) for f in files])
     return _submit
 
 
@@ -60,6 +63,19 @@ def test_us01_valid_submission_creates_one_preparing_case_owned_by_submitter(sub
     assert case["support_type"] == "F-6-1"
     assert case["id"] and case["created_at"]
     assert case_count(factory) == before + 1
+
+
+def test_us01_selected_display_language_vi_is_kept_on_case(submit, client):
+    """US-01 (정상) 1: 표시 언어(모국어) 1개를 제출하면 준비 건에 남는다(US-03·07의 두 언어 표시에 쓰임).
+
+    상세 응답의 display_language로 확인한다(API.md 항목 3 출력 필드).
+    """
+    case = submit(display_language="vi").json()["case"]
+
+    detail = client.get(f"/cases/{case['id']}", headers=OWNER)
+
+    assert detail.status_code == 200
+    assert detail.json()["display_language"] == "vi"
 
 
 @pytest.mark.parametrize("headers,status", [({}, 401), (OFFICER, 403)], ids=["anonymous", "officer"])
@@ -185,3 +201,16 @@ def test_us01_support_type_other_than_f61_rejected(submit, client, factory, supp
     """US-01 (실패) 4: F-6-1 외 유형은 거절한다."""
     before = case_count(factory)
     assert_rejected(submit(support_type=support_type), factory, before, "support_type")
+
+
+def test_us01_missing_display_language_rejected(submit, client, factory):
+    """US-01 (실패) 4: 표시 언어 미선택(요청에 항목 없음)이면 준비 건을 만들지 않고 422 field=display_language."""
+    before = case_count(factory)
+    assert_rejected(submit(display_language=OMIT), factory, before, "display_language")
+
+
+@pytest.mark.parametrize("display_language", ["", "en"], ids=["empty", "unsupported"])
+def test_us01_display_language_other_than_vi_rejected(submit, client, factory, display_language):
+    """US-01 (실패) 4 + 팀 제안: 값은 "vi"만 받는다. 빈 값·다른 언어는 422 field=display_language."""
+    before = case_count(factory)
+    assert_rejected(submit(display_language=display_language), factory, before, "display_language")

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useEffect, useState } from 'react'
 import { SupplementScreen } from './SupplementScreen'
 import { ApiError, cancelCase, errorMessage, getCase } from '../api/cases'
 import { startCheck } from '../api/workflow'
 import type { CancelResult, CaseDetail, UserAccount } from '../types'
 import { ApprovedResultView } from './ApprovedResultView'
+import { PreparationCheckScreen } from './PreparationCheckScreen'
 
 type Props = {
   caseId: number
@@ -149,11 +149,21 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
       {checkError && <p className="error" role="alert">{checkError}</p>}
 
       {detail && APPROVED_STATES.includes(detail.status) && (
-        <ApprovedResultView
-          key={revision}
-          caseId={caseId}
-          account={account}
-        />
+        <>
+          <ApprovedResultView
+            key={`result-${revision}`}
+            caseId={caseId}
+            account={account}
+          />
+          <PreparationCheckScreen
+            caseId={caseId}
+            account={account}
+            onChanged={() => {
+              setRevision((value) => value + 1)
+              onChanged()
+            }}
+          />
+        </>
       )}
 
       {detail && ['서류 준비중', '준비 확인 요청', '보완 요청'].includes(detail.status) && (

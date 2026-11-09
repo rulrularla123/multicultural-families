@@ -3,6 +3,7 @@ import { errorMessage } from '../api/cases'
 import { getApprovedResult, KIND_LABELS } from '../api/workflow'
 import type { ApprovedResult } from '../api/workflow'
 import type { DemoAccount } from '../types'
+import { CompletionNotice } from './CompletionScreen'
 
 type Props = {
   caseId: number
@@ -48,12 +49,7 @@ export function ApprovedResultView({ caseId, account }: Props) {
           ))}
         </tbody>
       </table>
-      {result.completion_notice && (
-        <div className="completion-notice" role="note">
-          <p>{result.completion_notice.notice_ko}</p>
-          <p lang="vi">{result.completion_notice.notice_translation}</p>
-        </div>
-      )}
+      {result.completion_notice && <CompletionNotice notice={result.completion_notice} />}
     </section>
   )
 }

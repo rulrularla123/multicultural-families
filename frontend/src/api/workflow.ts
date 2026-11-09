@@ -115,3 +115,35 @@ export function approveCase(caseId: number, resultId: number): Promise<unknown> 
 export function getApprovedResult(caseId: number, account: DemoAccount, signal?: AbortSignal): Promise<ApprovedResult> {
   return call(`/cases/${caseId}/approved-result`, account, { signal })
 }
+
+// 항목 11. true=준비함, false=아직. 일부 항목만 보내도 된다.
+export function savePreparationChoices(
+  caseId: number,
+  account: UserAccount,
+  items: { id: number; prepared: boolean }[],
+): Promise<unknown> {
+  return call(`/cases/${caseId}/preparation-items`, account, { method: 'POST', body: JSON.stringify({ items }) })
+}
+
+export type ConfirmationRequested = { case_id: number; status: string; requested_at: string; not_prepared_count: number }
+
+// 항목 12. 미선택 항목이 있으면 409 detail {message, unselected_item_ids}.
+export function requestConfirmation(caseId: number, account: UserAccount): Promise<ConfirmationRequested> {
+  return call(`/cases/${caseId}/request-confirmation`, account, { method: 'POST' })
+}
+
+export type Completed = {
+  case_id: number
+  status: string
+  completed_at: string
+  notice_ko: string
+  notice_translation: string
+}
+
+// 항목 13. 조건을 채우지 못하면 409 detail {reasons: [...]}.
+export function completeCase(caseId: number, noticeTranslation: string, confirmed: boolean): Promise<Completed> {
+  return call(`/cases/${caseId}/complete`, OFFICER, {
+    method: 'POST',
+    body: JSON.stringify({ notice_translation: noticeTranslation, translation_confirmed: confirmed }),
+  })
+}

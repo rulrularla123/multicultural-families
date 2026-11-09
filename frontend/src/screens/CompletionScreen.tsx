@@ -1,59 +1,66 @@
 import { useEffect, useState } from 'react'
 import { errorMessage } from '../api/cases'
-import { completeCase, completionBlockers } from '../api/completion'
-import { formatDate, getReadiness, notReadyCount, unresolvedSupplementCount } from '../api/preparationCheck'
-import type { ReadinessCase } from '../api/preparationCheck'
+import { completeCase, getApprovedResult } from '../api/workflow'
+import type { ApprovedResult, PreparationItem } from '../api/workflow'
 import './MyCasesScreen.css'
 import './PreparationCheckScreen.css'
 
-const ACCOUNT = 'demo-officer'
-
 type Props = {
   caseId: number
+  onChanged: () => void
 }
 
-type Loaded = { caseId: number; revision: number; data?: ReadinessCase; error?: string }
+// 완료 결과는 실제 민원 접수·허가가 아니다 (US-07 정상 2). 한국어 문구는 서버가 고정해서 돌려준다.
+export const NOTICE_KO = '민원 접수나 체류기간 연장 허가가 아닙니다'
 
-// DESIGN.md "보완·완료 확인 (담당자)" 중 완료 부분, F-07 / US-07. 임시 응답(api/completion.ts)을 쓴다.
-// 보완 요청 입력(US-06)은 이주환 담당이라 여기에 넣지 않았다.
-export function CompletionScreen({ caseId }: Props) {
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+// DESIGN.md "보완·완료 확인 (담당자)" 중 완료 부분, F-07 / US-07. API.md 항목 10·13.
+// 보완 요청 입력(US-06)은 별도 작업이라 여기에 넣지 않았다.
+export function CompletionScreen({ caseId, onChanged }: Props) {
+  const [data, setData] = useState<ApprovedResult | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
+  const [noticeVi, setNoticeVi] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
   const [completing, setCompleting] = useState(false)
-  const [rejectReasons, setRejectReasons] = useState<string[]>([])
   const [requestError, setRequestError] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
-    getReadiness(caseId, ACCOUNT, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setLoaded({ caseId, revision, data })
+    getApprovedResult(caseId, 'demo-officer', controller.signal)
+      .then((loaded) => {
+        if (!controller.signal.aborted) { setData(loaded); setLoadError(null) }
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setLoaded({ caseId, revision, error: errorMessage(error) })
+        if (!controller.signal.aborted) setLoadError(errorMessage(error))
       })
     return () => controller.abort()
   }, [caseId, revision])
 
-  const current = loaded?.caseId === caseId && loaded.revision === revision ? loaded : null
-  const data = current?.data
-  const blockers = data ? completionBlockers(data) : []
-  const completed = data?.status === '준비 확인 완료'
+  if (loadError) return <p className="error" role="alert">준비 확인 정보를 불러오지 못했습니다. {loadError}</p>
+  if (!data) return <p role="status">준비 확인 정보를 불러오는 중</p>
+
+  const items = data.preparation_items
+  const notReady = items.filter((item) => item.prepared !== true).length
+  const supplements = items.filter((item) => item.supplement_reason && !item.supplement_resolved).length
+  const needsReview = items.filter((item) => item.needs_confirmation).length
+  const completed = data.status === '준비 확인 완료'
+  // 화면에서 알 수 있는 사유만 미리 보여 준다. 버전 일치 여부는 완료 요청 때 서버가 확인한다.
+  const blockers = [
+    data.status !== '준비 확인 요청' && `지금 상태(${data.status})에서는 완료할 수 없습니다.`,
+    notReady > 0 && `"아직"이거나 고르지 않은 항목이 ${notReady}개 있습니다.`,
+    supplements > 0 && `미해결 보완 항목이 ${supplements}개 있습니다.`,
+    needsReview > 0 && `확인 필요 항목이 ${needsReview}개 있습니다.`,
+  ].filter((reason): reason is string => Boolean(reason))
 
   const handleComplete = async () => {
-    if (!data) return
     setCompleting(true)
-    setRejectReasons([])
     setRequestError(null)
     try {
-      const result = await completeCase(data.case_id, ACCOUNT)
-      if (!result.ok) {
-        // US-07 실패·거절: 사유를 표시하고 상태는 바꾸지 않는다.
-        setRejectReasons(result.reasons)
-        return
-      }
+      await completeCase(caseId, noticeVi, confirmed)
       setRevision((value) => value + 1)
+      onChanged()
     } catch (error) {
+      // US-07 실패·거절: 서버가 준 사유를 보여 주고 상태는 바꾸지 않는다.
       setRequestError(errorMessage(error))
     } finally {
       setCompleting(false)
@@ -61,85 +68,72 @@ export function CompletionScreen({ caseId }: Props) {
   }
 
   return (
-    <main className="my-cases">
-      <h1>준비 확인 완료</h1>
-      {!current && <p role="status">불러오는 중</p>}
-      {current?.error && <p className="error" role="alert">{current.error}</p>}
-      {data && (
-        <section className="case-detail" aria-labelledby="completion-title">
-          <h2 id="completion-title">준비 건 {data.case_id}</h2>
-          <dl>
-            <dt>현재 상태</dt>
-            <dd>{data.status}</dd>
-            <dt>승인 결과와 현재 버전</dt>
-            <dd>{data.versions_match ? '일치' : '다름 (재점검·재승인 필요)'}</dd>
-            <dt>"아직"인 항목</dt>
-            <dd>{notReadyCount(data)}개</dd>
-            <dt>미해결 보완 항목</dt>
-            <dd>{unresolvedSupplementCount(data)}개</dd>
-            <dt>확인 필요 항목</dt>
-            <dd>{data.needs_review_count}개</dd>
-            {data.completed_at && (
-              <>
-                <dt>완료 일시</dt>
-                <dd>{formatDate(data.completed_at)}</dd>
-              </>
-            )}
-          </dl>
+    <section className="completion" aria-labelledby={`completion-${caseId}`}>
+      <h3 id={`completion-${caseId}`}>준비 확인</h3>
+      <dl>
+        <dt>"아직"인 항목</dt>
+        <dd>{data.not_prepared_count}개</dd>
+        <dt>미해결 보완 항목</dt>
+        <dd>{supplements}개</dd>
+      </dl>
+      <ul className="readiness-items">
+        {items.map((item) => (
+          <li key={item.id} className="readiness-item">
+            {item.text}: <strong>{readinessLabel(item)}</strong>
+          </li>
+        ))}
+      </ul>
 
-          <h3>준비 항목</h3>
-          <ul className="readiness-items">
-            {data.items.map((item) => (
-              <li key={item.id} className="readiness-item">
-                {item.content}: <strong>{readinessLabel(item.is_ready)}</strong>
-              </li>
-            ))}
-          </ul>
-
-          {completed ? (
-            <>
-              <p>완료된 준비 건은 바꿀 수 없습니다.</p>
-              <CompletionNotice />
-            </>
-          ) : (
-            <>
-              {blockers.length > 0 && (
-                <div className="error" role="alert">
-                  <p>완료할 수 없는 이유</p>
-                  <ul>{blockers.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-                </div>
-              )}
-              {rejectReasons.length > 0 && (
-                <div className="error" role="alert">
-                  <p>완료 요청이 거절되었습니다.</p>
-                  <ul>{rejectReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-                </div>
-              )}
-              {requestError && <p className="error" role="alert">{requestError}</p>}
-              <button type="button" onClick={handleComplete} disabled={blockers.length > 0 || completing}>
-                {completing ? '완료 처리하는 중' : '준비 확인 완료'}
-              </button>
-            </>
+      {completed ? (
+        <>
+          {/* 완료 안내 두 언어는 위 승인 결과(ApprovedResultView)에 표시된다. */}
+          <p>완료된 준비 건은 바꿀 수 없습니다.</p>
+        </>
+      ) : (
+        <>
+          {blockers.length > 0 && (
+            <div className="error" role="alert">
+              <p>완료할 수 없는 이유</p>
+              <ul>{blockers.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+            </div>
           )}
-        </section>
+          <p>완료 안내 (한국어): {NOTICE_KO}</p>
+          <div className="field">
+            <label htmlFor={`notice-vi-${caseId}`}>완료 안내 베트남어 번역문</label>
+            <textarea
+              id={`notice-vi-${caseId}`} lang="vi" rows={2} value={noticeVi} disabled={completing}
+              onChange={(event) => setNoticeVi(event.target.value)}
+            />
+          </div>
+          <label className="confirm-toggle">
+            <input type="checkbox" checked={confirmed} disabled={completing} onChange={(event) => setConfirmed(event.target.checked)} />
+            베트남어 완료 안내를 확인했습니다
+          </label>
+          {requestError && <p className="error" role="alert">{requestError}</p>}
+          <button
+            type="button" onClick={handleComplete}
+            disabled={blockers.length > 0 || completing || !confirmed || noticeVi.trim() === ''}
+          >
+            {completing ? '완료 처리하는 중' : '준비 확인 완료'}
+          </button>
+        </>
       )}
-    </main>
+    </section>
   )
 }
 
-function readinessLabel(value: boolean | null): string {
-  if (value === true) return '준비함'
-  if (value === false) return '아직'
+function readinessLabel(item: PreparationItem): string {
+  if (item.prepared === true) return '준비함'
+  if (item.prepared === false) return '아직'
   return '미선택'
 }
 
-// US-07 (정상) 2번: 완료 화면에 한국어와 이용자 모국어로 표시하는 문구.
-// 첫 데모 모국어는 베트남어로 정해졌지만(PR #87) 번역 생성·검토 방식이 미정이라 모국어 줄은 자리만 둔다.
-export function CompletionNotice() {
+// US-07 (정상) 2: 완료 안내를 한국어와 이용자 모국어(베트남어)로 같이 보여 준다.
+export function CompletionNotice({ notice }: { notice: { notice_ko: string; notice_translation: string } }) {
   return (
     <div className="completion-notice" role="note">
-      <p lang="ko">준비 확인 완료는 민원 접수나 체류기간 연장 허가가 아닙니다.</p>
-      <p className="notice-pending">(베트남어 문구: 번역 검토 후 표시)</p>
+      <p lang="ko">준비 확인 완료는 {notice.notice_ko}.</p>
+      <p lang="vi">{notice.notice_translation}</p>
     </div>
   )
 }

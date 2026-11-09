@@ -31,7 +31,7 @@ def get_actor(
 
 def require_officer(actor: Annotated[DemoActor, Depends(get_actor)]) -> DemoActor:
     if actor.role != "officer":
-        raise HTTPException(403, "지원 담당자만 반려할 수 있습니다.")
+        raise HTTPException(403, "지원 담당자만 할 수 있습니다.")
     return actor
 
 

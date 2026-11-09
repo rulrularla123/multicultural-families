@@ -1,0 +1,64 @@
+.criteria-screen {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 2);
+}
+
+.criteria-list {
+  list-style: none;
+  padding: 0;
+}
+
+.criteria-list li, .criteria-screen fieldset {
+  padding: calc(var(--space) * 2);
+  margin-bottom: calc(var(--space) * 2);
+  border: 1px solid var(--text);
+  border-radius: calc(var(--space) / 2);
+  min-width: 0;
+}
+
+.criteria-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.criterion-choice, .criteria-actions, .officer-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+.officer-nav {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 2);
+}
+
+.criteria-screen button, .officer-nav button {
+  padding: var(--space) calc(var(--space) * 2);
+  border: 1px solid var(--primary);
+  border-radius: calc(var(--space) / 2);
+  background: var(--primary);
+  color: var(--background);
+  font: inherit;
+  cursor: pointer;
+}
+
+.officer-nav button[aria-pressed="false"] {
+  color: var(--primary);
+  background: var(--background);
+}
+
+.criteria-screen button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.criteria-screen :focus-visible, .officer-nav button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.criteria-screen [role="alert"] {
+  color: var(--danger);
+}

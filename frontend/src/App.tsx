@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { DemoAccount } from './types'
 import { MyCasesScreen } from './screens/MyCasesScreen'
-import { OfficerReviewScreen } from './screens/OfficerReviewScreen'
+import { OfficerWorkspace } from './screens/OfficerWorkspace'
 
 // 회원가입·로그인은 MVP 제외. 모의 계정은 X-Demo-Account 헤더로 보낸다 (API.md 공통 규칙).
 function App() {
@@ -22,7 +22,7 @@ function App() {
         </select>
       </div>
       {account === 'demo-officer'
-        ? <OfficerReviewScreen />
+        ? <OfficerWorkspace />
         : <MyCasesScreen key={account} account={account} />}
     </>
   )

@@ -1,5 +1,6 @@
 import type {
-  CancelResult, CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, UserAccount,
+  CancelResult, CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, ReviewQueueItem,
+  UserAccount,
 } from '../types'
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
@@ -7,19 +8,28 @@ const apiBase = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').r
 // 화면이 401·403·404·409·422를 구분해 안내할 수 있도록 HTTP 상태를 함께 싣는다.
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  // FastAPI `detail` 원본. 객체 detail(예: 점검 실패 위치, 미선택 항목 ID)을 화면이 따로 읽는다.
+  detail: unknown
+  constructor(status: number, message: string, detail?: unknown) {
     super(message)
     this.status = status
+    this.detail = detail
   }
 }
 
-// 오류 응답 형식은 API.md에서 아직 합의 전이다. 지금 서버의 FastAPI `detail`
-// (문자열, 또는 422 검증 오류의 목록)만 읽는다.
-async function serverError(response: Response): Promise<ApiError> {
+// API.md 공통 규칙: FastAPI `detail`은 문자열, 422 검증 오류 목록, 또는
+// {message, ...}·{reasons: [...]} 객체(항목 6·12·13)다.
+export async function serverError(response: Response): Promise<ApiError> {
   let message = '서버 요청을 처리하지 못했습니다.'
+  let detail: unknown
   try {
     const body: { detail?: unknown } = await response.json()
-    if (typeof body.detail === 'string') {
+    detail = body.detail
+    if (detail && typeof detail === 'object' && !Array.isArray(detail) && 'message' in detail) {
+      message = String(detail.message)
+    } else if (detail && typeof detail === 'object' && 'reasons' in detail && Array.isArray(detail.reasons)) {
+      message = detail.reasons.map(String).join(' ')
+    } else if (typeof body.detail === 'string') {
       message = body.detail
     } else if (Array.isArray(body.detail)) {
       const messages = body.detail
@@ -30,7 +40,7 @@ async function serverError(response: Response): Promise<ApiError> {
   } catch {
     // JSON이 아닌 서버 오류도 사용자에게 오류로 표시한다.
   }
-  return new ApiError(response.status, message)
+  return new ApiError(response.status, message, detail)
 }
 
 export async function listCases(account: UserAccount, signal?: AbortSignal): Promise<CaseSummary[]> {
@@ -91,6 +101,17 @@ export async function cancelCase(caseId: number, account: UserAccount): Promise<
   })
   if (!response.ok) throw await serverError(response)
   return (await response.json()) as CancelResult
+}
+
+// 검토 대기 목록 (F-09): GET /review-queue, 담당자만
+export async function listReviewQueue(signal?: AbortSignal): Promise<ReviewQueueItem[]> {
+  const response = await fetch(`${apiBase}/review-queue`, {
+    headers: { 'X-Demo-Account': 'demo-officer' }, signal,
+  })
+  if (!response.ok) throw await serverError(response)
+  const body: unknown = await response.json()
+  if (!Array.isArray(body)) throw new Error('검토 대기 목록 응답을 확인하지 못했습니다.')
+  return body as ReviewQueueItem[]
 }
 
 // DESIGN.md 오류 상태: 401은 모의 계정 선택 안내, 403은 권한 없음만 보여 준다.

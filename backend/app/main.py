@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.engine import Engine
 
 from .database import build_engine, session_factory
-from .routers import cancellation, case_detail, rejection
+from .routers import cancellation, case_detail, criteria, rejection, review_queue
 
 
 def create_app(engine: Engine | None = None, demo_mode: bool | None = None) -> FastAPI:
@@ -35,6 +35,8 @@ def create_app(engine: Engine | None = None, demo_mode: bool | None = None) -> F
     app.include_router(case_detail.router)
     app.include_router(rejection.router)
     app.include_router(cancellation.router)
+    app.include_router(review_queue.router)
+    app.include_router(criteria.router)
 
     return app
 

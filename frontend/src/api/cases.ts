@@ -1,5 +1,5 @@
 import type {
-  CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, UserAccount,
+  CancelResult, CaseDetail, CaseInput, CaseSummary, CreateCaseResult, DemoAccount, RejectResult, UserAccount,
 } from '../types'
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
@@ -81,6 +81,15 @@ export async function rejectCase(caseId: number, reason: string, account: DemoAc
   })
   if (!response.ok) throw await serverError(response)
   return (await response.json()) as RejectResult
+}
+
+// API.md 항목 5: POST /cases/{case_id}/cancel. 본문 없이 보내고 취소 확인은 화면에서 받는다.
+export async function cancelCase(caseId: number, account: UserAccount): Promise<CancelResult> {
+  const response = await fetch(`${apiBase}/cases/${caseId}/cancel`, {
+    method: 'POST', headers: { 'X-Demo-Account': account },
+  })
+  if (!response.ok) throw await serverError(response)
+  return (await response.json()) as CancelResult
 }
 
 // DESIGN.md 오류 상태: 401은 모의 계정 선택 안내, 403은 권한 없음만 보여 준다.

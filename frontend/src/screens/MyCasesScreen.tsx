@@ -58,7 +58,13 @@ export function MyCasesScreen({ account }: Props) {
       {cases !== null && cases.length === 0 && <p>아직 준비 건이 없습니다.</p>}
       {cases !== null && cases.length > 0 && <CaseList cases={cases} onOpen={setOpenedId} />}
       {openedId !== null && (
-        <CaseDetailPanel caseId={openedId} account={account} onClose={() => setOpenedId(null)} />
+        <CaseDetailPanel
+          key={openedId}
+          caseId={openedId}
+          account={account}
+          onClose={() => setOpenedId(null)}
+          onChanged={() => setRevision((value) => value + 1)}
+        />
       )}
       {cases !== null && !formOpen && (
         <button type="button" onClick={() => setFormOpen(true)}>새 준비 건 만들기</button>

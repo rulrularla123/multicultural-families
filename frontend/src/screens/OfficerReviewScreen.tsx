@@ -3,12 +3,13 @@ import { SupplementScreen } from './SupplementScreen'
 import type { FormEvent } from 'react'
 import { errorMessage, getCase, rejectCase } from '../api/cases'
 import type { CaseDetail } from '../types'
+import { OfficerCheckReview } from './OfficerCheckReview'
 import { ReviewQueue } from './ReviewQueue'
 import './MyCasesScreen.css'
 
 const ACCOUNT = 'demo-officer'
 
-// 검토 대기 목록은 임시 응답(mockReviewQueue.ts)이다. 목록에 없는 건은 준비 건 ID로 상세를 연다.
+// 검토 대기 목록(GET /review-queue)에서 열거나, 목록에 없는 건은 준비 건 ID로 상세를 연다.
 export function OfficerReviewScreen() {
   const [idInput, setIdInput] = useState('')
   const [detail, setDetail] = useState<CaseDetail | null>(null)
@@ -120,19 +121,8 @@ export function OfficerReviewScreen() {
             )}
           </dl>
 
-          {detail.analysis_items && (
-            <div className="draft">
-              <h3>자동 점검 결과 <span className="draft-label">담당자 확인 전 초안</span></h3>
-              {detail.analysis_items.length === 0 ? (
-                <p>분석 항목이 없습니다.</p>
-              ) : (
-                <ul>
-                  {detail.analysis_items.map((item, index) => (
-                    <li key={index} className="pre-wrap">{describeItem(item)}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {detail.status === '담당자 승인 대기' && (
+            <OfficerCheckReview key={detail.id} caseId={detail.id} onApproved={() => { void load(detail.id) }} />
           )}
 
           {['서류 준비중', '준비 확인 요청', '보완 요청'].includes(detail.status) && (
@@ -164,12 +154,4 @@ export function OfficerReviewScreen() {
       )}
     </main>
   )
-}
-
-function describeItem(item: unknown): string {
-  if (item && typeof item === 'object' && 'text' in item) {
-    const kind = 'kind' in item ? `${String(item.kind)}: ` : ''
-    return `${kind}${String(item.text)}`
-  }
-  return JSON.stringify(item)
 }

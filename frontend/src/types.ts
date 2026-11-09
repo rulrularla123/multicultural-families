@@ -37,7 +37,7 @@ export type CaseDetail = {
   analysis_items?: unknown[]
 }
 
-// 검토 대기 목록(F-09). API.md "아직 없는 항목"이라 필드 이름은 임시다.
+// 검토 대기 목록(F-09). GET /review-queue 응답 한 줄.
 // failure_reason은 DATA-MODEL CheckResult.failure_reason에서 이름을 가져왔다.
 export type ReviewQueueItem = {
   id: number

@@ -134,7 +134,7 @@ def extract_inputs(snapshot):
     return pages
 
 
-def start_check(factory, case_id, actor, snapshot, pages):
+def start_check(factory, case_id, actor, snapshot, pages, audit_actor=None):
     with factory.begin() as session:
         case = locked_case(session, case_id)
         owner_only(case, actor)
@@ -169,11 +169,11 @@ def start_check(factory, case_id, actor, snapshot, pages):
             CaseApproval.case_id == case.id, CaseApproval.invalidated_at.is_(None),
         ).values(invalidated_at=utc_now()))
         recorded = versions(criteria)
-        history(session, case, actor, CaseStatus.CHECKING, criterion_versions=recorded)
+        history(session, case, audit_actor or actor, CaseStatus.CHECKING, criterion_versions=recorded)
         return task_id, request, recorded
 
 
-def finish_check(factory, case_id, actor, snapshot, task_id, recorded, analysis, failure):
+def finish_check(factory, case_id, actor, snapshot, task_id, recorded, analysis, failure, audit_actor=None):
     with factory.begin() as session:
         case = locked_case(session, case_id)
         if (case.status != CaseStatus.CHECKING.value or case.current_check_task_id != task_id
@@ -203,7 +203,7 @@ def finish_check(factory, case_id, actor, snapshot, task_id, recorded, analysis,
             analysis_items=items, failure_reason=failure,
         )
         session.add(result)
-        history(session, case, actor, CaseStatus.REVIEWING,
+        history(session, case, audit_actor or actor, CaseStatus.REVIEWING,
                 reason="자동 점검 실패" if failure else "", criterion_versions=recorded)
         session.flush()
         # 이용자에게는 결과 ID·내용·실패 원문을 노출하지 않는다.
@@ -211,14 +211,14 @@ def finish_check(factory, case_id, actor, snapshot, task_id, recorded, analysis,
                 "message": "담당자 검토 중"}
 
 
-async def perform_check(factory, case_id, actor, transport, *, timeout=60):
+async def perform_check(factory, case_id, actor, transport, *, timeout=60, audit_actor=None):
     snapshot = await run_in_threadpool(read_inputs, factory, case_id, actor)
     pages = await run_in_threadpool(extract_inputs, snapshot)
-    task_id, request, recorded = await run_in_threadpool(start_check, factory, case_id, actor, snapshot, pages)
+    task_id, request, recorded = await run_in_threadpool(start_check, factory, case_id, actor, snapshot, pages, audit_actor)
     analysis, failure = None, None
     try:
         analysis = await check_documents(request, transport, timeout=timeout)
     except CheckClientError as error:
         failure = error.code.value
     return await run_in_threadpool(finish_check, factory, case_id, actor, snapshot,
-                                  task_id, recorded, analysis, failure)
+                                  task_id, recorded, analysis, failure, audit_actor)

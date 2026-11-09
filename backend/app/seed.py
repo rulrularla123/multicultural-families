@@ -1,7 +1,8 @@
 import os
+from datetime import date
 
 from .database import build_engine, session_factory
-from .models import Base, CaseStatus, CheckResult, PreparationCase
+from .models import Base, CaseStatus, CheckResult, Criterion, PreparationCase
 
 
 DEMO_CASES = [
@@ -34,6 +35,26 @@ def seed_demo(session, display_language: str):
     return created
 
 
+# 첫 데모용 공통 기준 1개 버전 (PRD 10절). 실제 공식 기준·출처가 아니다.
+# seed_demo와 분리해 둔다. 테스트는 기준이 없는 상태에서 시작해 필요한 기준을 직접 넣는다.
+DEMO_CRITERION = dict(
+    support_type="F-6-1", office=None,
+    body="개발용 모의 공통 기준입니다. 실제 체류기간 연장 기준이 아닙니다. "
+         "모의 상황 설명과 모의 PDF를 대조해 주의점과 추가 준비 서류 후보를 정리하는 데모에만 씁니다.",
+    source="모의 출처 (실제 공식 문서 아님)", checked_on=date(2026, 11, 9),
+    version=1, is_verified=True, is_active=True,
+)
+
+
+def seed_criteria(session):
+    """공통 기준이 하나도 없을 때만 넣는다. 기존 기준은 덮어쓰지 않는다."""
+    exists = session.query(Criterion).filter(Criterion.office.is_(None)).first()
+    if exists is not None:
+        return 0
+    session.add(Criterion(**DEMO_CRITERION))
+    return 1
+
+
 def main():
     if os.environ.get("DEMO_MODE") != "1":
         raise SystemExit("모의 데이터 전용입니다. DEMO_MODE=1로 실행하세요.")
@@ -45,7 +66,8 @@ def main():
         Base.metadata.create_all(engine)
         with session_factory(engine).begin() as session:
             count = seed_demo(session, language)
-        print(f"모의 준비 건 {count}개 추가. 기존 건은 덮어쓰지 않았습니다.")
+            criteria = seed_criteria(session)
+        print(f"모의 준비 건 {count}개, 공통 기준 {criteria}개 추가. 기존 데이터는 덮어쓰지 않았습니다.")
     finally:
         engine.dispose()
 

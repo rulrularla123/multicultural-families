@@ -1,31 +1,55 @@
-import { useState } from 'react'
-import type { DemoAccount } from './types'
-import { MyCasesScreen } from './screens/MyCasesScreen'
-import { OfficerWorkspace } from './screens/OfficerWorkspace'
+import './App.css'
+import { AppProvider, useApp } from './AppContext'
+import { ChatStoreProvider } from './chatStore'
+import Header from './components/Header'
+import Footer from './components/Footer'
+import Home from './screens/Home'
+import Chat from './screens/Chat'
+import Provision from './screens/Provision'
+import Upload from './screens/Upload'
+import DocumentFlow from './screens/DocumentFlow'
+import MyDocuments from './screens/MyDocuments'
 
-// 회원가입·로그인은 MVP 제외. 모의 계정은 X-Demo-Account 헤더로 보낸다 (API.md 공통 규칙).
-function App() {
-  const [account, setAccount] = useState<DemoAccount>('demo-user-1')
+function Screen() {
+  const { view } = useApp()
+  switch (view.name) {
+    case 'home':
+      return <Home />
+    case 'chat':
+      return <Chat analysisId={view.analysisId} />
+    case 'provision':
+      return <Provision id={view.id} />
+    case 'newDocument':
+      return <Upload />
+    case 'document':
+      return <DocumentFlow id={view.id} />
+    case 'myDocuments':
+      return <MyDocuments />
+    default:
+      return null
+  }
+}
 
+function Shell() {
+  const { view } = useApp()
+  const isChat = view.name === 'chat'
   return (
-    <>
-      <div className="account-bar">
-        <label htmlFor="demo-account">모의 계정</label>
-        <select
-          id="demo-account"
-          value={account}
-          onChange={(event) => setAccount(event.target.value as DemoAccount)}
-        >
-          <option value="demo-user-1">모의 이용자 1</option>
-          <option value="demo-user-2">모의 이용자 2</option>
-          <option value="demo-officer">모의 지원 담당자</option>
-        </select>
-      </div>
-      {account === 'demo-officer'
-        ? <OfficerWorkspace />
-        : <MyCasesScreen key={account} account={account} />}
-    </>
+    <div className="app-shell">
+      <Header />
+      <main className={`app-main${isChat ? ' app-main--chat' : ''}`}>
+        <Screen />
+      </main>
+      {!isChat && <Footer />}
+    </div>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <AppProvider>
+      <ChatStoreProvider>
+        <Shell />
+      </ChatStoreProvider>
+    </AppProvider>
+  )
+}

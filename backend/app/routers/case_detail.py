@@ -14,6 +14,7 @@ from ..models import (
     Attachment, CaseHistory, CaseStatus, CheckResult, PreparationCase,
 )
 from ..schemas import CaseDetail, CaseSummary, CreateCaseResponse, OfficerCaseDetail
+from .case_workflow import router as workflow_router
 
 
 router = APIRouter()
@@ -171,3 +172,7 @@ def list_cases(
         .order_by(PreparationCase.created_at.desc(), PreparationCase.id.desc())
     )
     return [CaseSummary.model_validate(case) for case in cases]
+
+
+# 민건 담당 후속 API를 이미 등록된 router에 연결한다. 공유 main.py는 수정하지 않는다.
+router.include_router(workflow_router)

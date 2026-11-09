@@ -38,12 +38,29 @@ def prepare_us01_schema(engine: Engine) -> list[str]:
     return changes
 
 
+def prepare_workflow_schema(engine: Engine) -> list[str]:
+    """모의 DB 명시 실행용. 기존 행을 보존하는 추가 작업만 수행한다."""
+    changes = prepare_us01_schema(engine)
+    additions = {
+        "preparation_cases": {"office": "VARCHAR(128) NULL"},
+        "check_results": {"reviewed_items": "JSON NULL", "review_reason": "TEXT NULL"},
+    }
+    for table, definitions in additions.items():
+        existing = {c["name"] for c in inspect(engine).get_columns(table)}
+        for column, definition in definitions.items():
+            if column not in existing:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
+                changes.append(f"{table}.{column} 추가")
+    return changes
+
+
 if __name__ == "__main__":
     if os.environ.get("DEMO_MODE") != "1":
         raise SystemExit("전용 모의 DB에 명시적으로 적용합니다. DEMO_MODE=1로 실행하세요.")
     engine = build_engine()
     try:
-        changes = prepare_us01_schema(engine)
-        print("US-01 스키마 준비 완료. " + (" / ".join(changes) if changes else "추가 변경 없음."))
+        changes = prepare_workflow_schema(engine)
+        print("준비 건 스키마 준비 완료. " + (" / ".join(changes) if changes else "추가 변경 없음."))
     finally:
         engine.dispose()

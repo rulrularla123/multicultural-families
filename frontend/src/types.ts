@@ -13,6 +13,7 @@ export type CaseSummary = {
 export type CaseInput = {
   support_type: string
   situation: string
+  display_language: string
   files: File[]
 }
 

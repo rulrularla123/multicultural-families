@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SupplementScreen } from './SupplementScreen'
 import { cancelCase, errorMessage, getCase } from '../api/cases'
 import type { CancelResult, CaseDetail, UserAccount } from '../types'
 
@@ -92,6 +93,9 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
             </>
           )}
         </dl>
+      )}
+      {detail && ['서류 준비중', '준비 확인 요청', '보완 요청'].includes(detail.status) && (
+        <SupplementScreen key={`${caseId}-${account}`} caseId={caseId} account={account} onChanged={() => {setRevision((value) => value + 1); onChanged()}} />
       )}
       {canceled && (
         <p role="status">

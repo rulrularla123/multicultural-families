@@ -21,6 +21,20 @@ LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
 - 법령 원문 새로 받기: `python -m ingest fetch` (legalize-kr, 오늘 시행 중인 판을 고른다)
 - 시연용 서류: `data/demo/*.docx` (가상 안내문). 다시 만들기: `python scripts/make_demo_docs.py`
 
+### 프론트엔드
+
+위 백엔드를 `http://127.0.0.1:8000`에 띄운 상태에서 실행한다. Node.js가 필요하다.
+
+```bash
+cd frontend
+npm install
+npm run dev                             # http://localhost:5173
+```
+
+- 화면은 `http://127.0.0.1:8000/api/v1`을 호출한다 (`frontend/src/api/client.ts`). 백엔드 CORS는 `http://localhost:5173`·`http://127.0.0.1:5173`만 허용한다(`app/core/config.py`의 `cors_origins`).
+- `npm run build`(타입 체크 + 빌드), `npm run lint`(oxlint)로 확인한다.
+- Claude Code 세션에서는 저장소 루트의 `.claude/launch.json`에 등록된 `frontend-dev` 설정으로 미리보기 브라우저에서 바로 열 수 있다.
+
 ## 테스트
 
 ```bash

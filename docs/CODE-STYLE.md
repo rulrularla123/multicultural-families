@@ -30,21 +30,42 @@
 
 ## 담당 폴더
 
-아래는 2026-11-03 작업 분배를 반영한 제안이다. 팀 리뷰 후 확정하며, 새 파일은 담당 경로를 먼저 맞춘다.
+2026-11-09 최종 업무 배정을 반영했다. US-01 이후 작업은 이번 배정과 백로그의 해당 스토리를 범위로 삼는다. 아래 후속 파일명은 동시 작업이 겹치지 않도록 나눈 작업 경로이며, 아직 없는 파일은 해당 단계에서 만든다. 파일명·경로가 최신 main과 다르면 기존 구현을 확인하고 이 표를 먼저 맞춘다.
 
 | 영역 | 폴더·파일 | 수정할 수 있는 사람 |
 | --- | --- | --- |
 | 공유 설정·서버 조립 | `backend/app/main.py`, `backend/app/dependencies.py`, 패키지 초기화 파일, 루트 `CLAUDE.md`, 공유 설정·의존성 | 이주환 |
-| 상세 조회·생성·목록·점검·승인·체크·완료 | `backend/app/routers/case_detail.py`, 이후 스토리별 router 파일(파일명은 작업 전 합의) | 김민건 |
+| 생성·본인 목록·상세 (US-01, 기존 상세) | `backend/app/routers/case_detail.py` | 김민건 |
+| 자동 점검 (US-02) | `backend/app/routers/checking.py` | 김민건 |
+| 기준 등록·변경 (F-02) | `backend/app/routers/criteria.py` | 이주환 |
+| 검토 대기 목록 (F-09) | `backend/app/routers/review_queue.py` | 여철준 |
+| 검토 항목 수정·승인·결과 공개 (US-03) | `backend/app/routers/approval.py` | 김민건 |
 | 반려 (US-04) | `backend/app/routers/rejection.py` | 김민건 |
-| 기준 등록·변경, 보완 | 이후 `backend/app/routers/` 내 스토리별 파일(파일명은 작업 전 합의) | 이주환 |
-| 취소·입력 수정·재점검 | 이후 `backend/app/routers/` 내 스토리별 파일(파일명은 작업 전 합의) | 권길현 (재점검 담당은 제안) |
-| 식별정보 검사 | `backend/app/common/identity_patterns.py` (후속 작업에서 생성) | 권길현 |
-| PDF 추출·LLM 클라이언트 | `backend/app/common/pdf_extraction.py`, `backend/app/common/llm_client.py` (후속 작업에서 생성) | 이주환 |
-| 공유 모델·스키마·DB·시드 | `backend/app/models.py`, `schemas.py`, `database.py`, `seed.py` | 김민건 |
+| 준비 체크·확인 요청 (US-05) | `backend/app/routers/preparation_check.py` | 김태후 |
+| 보완 요청·수정 시작 (US-06) | `backend/app/routers/supplementation.py` | 이주환 |
+| 완료 (US-07) | `backend/app/routers/completion.py` | 김태후 |
+| 취소 (US-08) | `backend/app/routers/cancellation.py` | 권길현 |
+| 입력 수정·버전 증가·재점검 | `backend/app/routers/input_revision.py` | 권길현 |
+| 식별정보 검사 | `backend/app/common/identity_patterns.py` | 권길현 |
+| PDF 추출·LLM 클라이언트 | `backend/app/common/pdf_extraction.py`, `backend/app/common/llm_client.py` | 이주환 |
+| 공유 모델·스키마·DB·기존 시드 | `backend/app/models.py`, `schemas.py`, `database.py`, `seed.py` | 김민건 |
+| 공통 기준 시드 (F-02) | `backend/app/criteria_seed.py` | 이주환 |
 | 공통 모듈 단위 점검 | `backend/common_tests/` (DB 없이 unittest 실행) | 이주환 |
-| 서버 자체 점검 | `backend/tests/` (acceptance 제외) | 김민건 |
-| 인수 테스트 | `backend/tests/acceptance/` (후속 작업에서 생성) | 김태후 |
-| 화면 | `frontend/` | 여철준 |
+| 기존 생성·첨부·상세·반려 테스트 | `backend/tests/test_creation.py`, `test_attachment.py`, `test_us01_schema.py`, `test_rejection.py` | 김민건 |
+| 자동 점검 테스트 (US-02) | `backend/tests/test_checking.py` (정상·권한), `test_checking_failures.py` (합의한 실패 응답) | 김민건 (정상·권한), 김태후 (실패) |
+| 기준·승인·검토 대기 목록 테스트 | `backend/tests/test_criteria.py`, `test_approval.py`, `test_review_queue.py` | 각각 이주환, 김민건, 여철준 |
+| 준비 체크·완료 테스트 | `backend/tests/test_preparation_check.py`, `test_completion.py` | 김태후 (김민건 리뷰) |
+| 보완 테스트 | `backend/tests/test_supplementation.py` | 이주환 |
+| 취소·식별정보·입력 수정 테스트 | `backend/tests/test_cancellation.py`, `test_identity_patterns.py`, `test_input_revision.py` | 권길현 |
+| 테스트 공통 fixture | `backend/tests/conftest.py` | 김민건 (스토리 담당자가 필요한 변경 전달) |
+| 전체 흐름 인수 테스트 | `backend/tests/acceptance/` (후속 작업에서 생성) | 김태후 주도, 전원 실행 |
+| 기존 생성·목록 화면 | `frontend/src/screens/CaseForm.tsx`, `CaseList.tsx`, `MyCasesScreen.tsx`, `MyCasesScreen.css` | 여철준. H2 확정 후 `CaseForm.tsx` 표시 언어 선택 추가는 권길현 |
+| 검토 대기 목록 화면 | `frontend/src/screens/ReviewQueueScreen.tsx` | 여철준 |
+| 담당자 검토·승인, 이용자 승인 결과 화면 | `frontend/src/screens/ReviewScreen.tsx`, `ApprovedResultScreen.tsx` | 여철준 |
+| 준비 체크·완료 화면 | `frontend/src/screens/PreparationCheckScreen.tsx`, `CompletionScreen.tsx` | 김태후 |
+| 기준 관리·보완 화면 | `frontend/src/screens/CriteriaScreen.tsx`, `SupplementScreen.tsx` | 이주환 |
+| 상태·취소·입력 수정 화면 | `frontend/src/screens/CaseStatusScreen.tsx`, `InputRevisionScreen.tsx` | 권길현 |
+| 후속 화면 API·타입·임시 응답 | `frontend/src/api/criteria.ts`, `reviewQueue.ts`, `approval.ts`, `preparationCheck.ts`, `supplementation.ts`, `completion.ts`, `cancellation.ts`, `inputRevision.ts` | 해당 스토리의 화면 담당자. API 응답 타입과 임시 응답도 해당 파일 또는 같은 이름의 스토리별 파일에 둔다 |
+| 화면 공통 조립·기존 API·타입 | `frontend/src/App.tsx`, `main.tsx`, `types.ts`, `tokens.css`, `api/cases.ts` | 여철준 (다른 스토리 담당자는 연결에 필요한 변경 전달) |
 
-문서별 수정 담당은 위 규칙 4를 따른다. 다른 담당 파일 변경은 PR에 요청으로 남긴다. 아직 이름이 없는 router는 구현 전에 이 표에 파일명과 담당자를 추가한다.
+문서별 수정 담당은 위 규칙 4를 따른다. 다른 담당 파일 변경은 PR에 요청으로 남긴다. 새 router 등록은 이주환에게 전달하며, 스토리별 요청·응답 스키마는 해당 router에서 관리하고 공통 스키마 변경은 김민건과 맞춘다. 공통 기준 시드와 PreparationItem 시드는 Criterion·PreparationItem 모델 확정 후 연결하고, 모의 항목을 실제 승인 결과로 표시하지 않는다. 표의 테스트 파일은 각 스토리의 정상·실패·권한 경로를 담당하며, US-02 실패 테스트는 2단계 API 합의 후 작성한다.

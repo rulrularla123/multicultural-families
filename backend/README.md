@@ -144,3 +144,19 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 http://127.0.0.1:5173 에서 모의 이용자 1·2를 고른다. 새 준비 건에서 상황과 모의 PDF를 제출하면 실제 MySQL에 저장되고 목록에 나타난다. 새로고침해도 남으며 다른 이용자로 바꾸면 해당 이용자 목록만 보인다. 표시 언어·반려 화면은 추가하지 않았다.
 
 API 기본 주소는 http://127.0.0.1:8000 이며 필요하면 Vite 실행 환경의 VITE_API_BASE_URL로 바꿀 수 있다. 비밀 값을 넣는 설정이 아니다. 모의 응답 파일은 제거했으며 서버가 꺼져 있으면 오류와 다시 불러오기 버튼을 보여 준다. 서버의 기본 허용 화면 주소는 localhost:5173과 127.0.0.1:5173이다.
+
+
+## 공통 모듈·CI
+
+공통 모듈의 입력·출력 제안과 호출자 책임은 [COMMON-MODULES.md](COMMON-MODULES.md)를 참고한다.
+
+[Backend tests](../.github/workflows/backend-tests.yml)는 PR·main 푸시·수동 실행에서 다음 검사를 하도록 구성했다. Python 3.11과 일회용 MySQL 8.4 컨테이너를 사용한다.
+
+1. `python -m pip install -r requirements.txt`
+2. `python -m pip check`
+3. `python -m unittest discover -s common_tests -v` (공통 모듈, DB 불필요)
+4. `python -m pytest -q` (기존 서버 테스트, 전용 MySQL)
+
+모두 backend/에서 실행한다. CI DB는 매번 새로 생성하는 preparation_test이며 동적 포트와 컨테이너 전용 모의 계정을 쓴다. 개발·운영 DB나 Secrets는 필요 없다. 로컬 MySQL 테스트는 위 TEST_DATABASE_URL 안내를 따른다.
+
+CI 설정 작성과 실제 CI 통과는 구분한다. 현재 의존성 설치가 실패해 전체 고정 환경과 MySQL 회귀는 미검증이다. PDF 테스트가 건너뛰어지면 추출 성공 검증으로 보지 않는다. 병합 전 CI 결과에서 PDF 테스트 실행과 전체 테스트 통과를 확인한다.

@@ -23,7 +23,8 @@ def counts(factory):
 
 
 def create(client, *, situation="체류 연장 준비", support_type="F-6-1", files=None, headers=USER, extra=None):
-    data = {"support_type": support_type, "situation": situation, **(extra or {})}
+    # US-01 (정상) 1: 표시 언어(모국어) 1개를 함께 제출한다. 첫 데모 모국어는 베트남어(vi).
+    data = {"support_type": support_type, "situation": situation, "display_language": "vi", **(extra or {})}
     uploads = files if files is not None else [("files", ("mock.pdf", PDF, "application/pdf"))]
     return client.post("/cases", headers=headers, data=data, files=uploads)
 
@@ -43,7 +44,7 @@ def test_us01_create_persists_pdf_and_only_lists_owner_cases(client, factory):
     with factory() as session:
         case = session.get(PreparationCase, summary["id"])
         attachment = session.scalar(select(Attachment).where(Attachment.case_id == case.id))
-        assert case.display_language is None
+        assert case.display_language == "vi"
         assert case.situation == "체류 연장 준비"
         assert attachment.filename == "mock.pdf"
         assert attachment.file_data == PDF
@@ -57,7 +58,7 @@ def test_us01_create_persists_pdf_and_only_lists_owner_cases(client, factory):
     assert summary["id"] not in [item["id"] for item in client.get("/cases", headers=OTHER).json()]
     detail = client.get(f"/cases/{summary['id']}", headers=USER)
     assert detail.status_code == 200
-    assert detail.json()["display_language"] is None
+    assert detail.json()["display_language"] == "vi"
     assert "file_data" not in detail.json()
     assert "analysis_items" not in detail.json()
     assert client.get(f"/cases/{summary['id']}", headers=OTHER).status_code == 403

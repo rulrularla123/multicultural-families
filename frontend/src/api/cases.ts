@@ -47,6 +47,7 @@ export async function createCase(input: CaseInput, account: UserAccount): Promis
   const form = new FormData()
   form.append('support_type', input.support_type)
   form.append('situation', input.situation)
+  form.append('display_language', input.display_language)
   for (const file of input.files) form.append('files', file)
   const response = await fetch(`${apiBase}/cases`, {
     method: 'POST', headers: { 'X-Demo-Account': account }, body: form,

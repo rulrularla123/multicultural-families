@@ -10,7 +10,7 @@
 > 5. 모르는 것은 `미정`으로 씁니다. 임의로 정하지 않습니다.
 > 6. `>`로 시작하는 안내 문장은 지워도 됩니다.
 
-- 최종 수정일: 2026-11-03
+- 최종 수정일: 2026-11-09
 - 근거: `backlog.md` US-01·US-04·US-08, `first-feature.md` 2절, `DATA-MODEL.md`, `backend/README.md` 서버 계약
 - 상태: 항목 1~5는 **합의**(2026-11-03 팀 채팅, 개발자1·개발자2). 공통 규칙의 오류 응답 형식·상태 코드·시간 형식은 서버 구현(#70) 기준으로 적었고 개발자2 확인 전.
 
@@ -29,10 +29,11 @@
 | 항목 | 내용 |
 | --- | --- |
 | 요청 (경로·방식) | `POST /cases`, `multipart/form-data` |
-| 입력 | `support_type`(F-6-1만), `situation`(1~1,000자), `files`(PDF 1~5개, 각 10,485,760바이트 이하). 표시 언어는 오늘 범위 밖 |
+| 입력 | `support_type`(F-6-1만), `situation`(1~1,000자), `display_language`(`vi`만), `files`(PDF 1~5개, 각 10,485,760바이트 이하) |
+| 표시 언어 | 첫 데모 모국어는 베트남어(2026-11-09 클라이언트 답). 값은 `vi` 하나. 없거나 빈 값·다른 값이면 거절한다. 저장한 값은 상세(항목 3) `display_language`로 돌려준다 |
 | 상황 설명 글자 수 | 공백·줄바꿈을 포함해 센다. 공백·줄바꿈만 있으면 거절한다. 화면은 `Array.from(situation).length`로 센다 |
 | 출력 (성공) | `201`, `{ok: true, case: {id, support_type, status, owner_id, created_at}}`. `status`는 `준비중`, `owner_id`는 요청한 모의 계정 |
-| 실패 응답 | 준비 건을 만들지 않고 422 `{ok: false, errors: [{field, reason}]}`로 거절한 항목과 사유를 돌려준다: PDF 아님(확장자 또는 파일 시그니처), 10MB 초과, 파일 0개·6개 이상, 빈 상황 설명, 1,000자 초과, F-6-1 외 유형. `field`는 `support_type`·`situation`·`files`, 지원하지 않는 입력 항목은 그 항목 이름 |
+| 실패 응답 | 준비 건을 만들지 않고 422 `{ok: false, errors: [{field, reason}]}`로 거절한 항목과 사유를 돌려준다: PDF 아님(확장자 또는 파일 시그니처), 10MB 초과, 파일 0개·6개 이상, 빈 상황 설명, 1,000자 초과, F-6-1 외 유형, 표시 언어 미선택·`vi` 외 값. `field`는 `support_type`·`situation`·`display_language`·`files`, 지원하지 않는 입력 항목은 그 항목 이름 |
 | 권한 (누가 못 하나) | 계정 없음 401, 담당자 403 |
 | 바뀌는 상태 | (시작) → 준비중 |
 | 관련 인수 조건 | `first-feature.md` 2절 1·3·4번 |
@@ -97,6 +98,7 @@
 요청: POST /cases  (X-Demo-Account: demo-user-1)
   support_type=F-6-1
   situation=체류기간 연장을 위해 준비한 서류를 확인하고 싶습니다.
+  display_language=vi
   files=@모의서류.pdf
 응답(성공): 201
   {"ok": true, "case": {"id": 1006, "support_type": "F-6-1", "status": "준비중", "owner_id": "demo-user-1", "created_at": "2026-11-03T05:00:00+00:00"}}

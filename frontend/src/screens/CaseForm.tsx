@@ -23,6 +23,7 @@ function FieldErrors({ id, errors }: { id: string; errors: FieldError[] }) {
 export function CaseForm({ account, onCreated, onCancel }: Props) {
   const [supportType, setSupportType] = useState('F-6-1')
   const [situation, setSituation] = useState('')
+  const [displayLanguage, setDisplayLanguage] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [errors, setErrors] = useState<FieldError[]>([])
   const [submitFailed, setSubmitFailed] = useState(false)
@@ -41,7 +42,7 @@ export function CaseForm({ account, onCreated, onCancel }: Props) {
     setSubmitFailed(false)
     setErrors([])
     try {
-      const result = await createCase({ support_type: supportType, situation, files }, account)
+      const result = await createCase({ support_type: supportType, situation, display_language: displayLanguage, files }, account)
       if (result.ok) {
         onCreated()
       } else {
@@ -57,7 +58,10 @@ export function CaseForm({ account, onCreated, onCancel }: Props) {
   const situationErrors = errorsFor('situation')
   const fileErrors = errorsFor('files')
   const supportTypeErrors = errorsFor('support_type')
-  const otherErrors = errors.filter((error) => !['support_type', 'situation', 'files'].includes(error.field))
+  const languageErrors = errorsFor('display_language')
+  const otherErrors = errors.filter(
+    (error) => !['support_type', 'situation', 'display_language', 'files'].includes(error.field),
+  )
 
   return (
     <form className="case-form" onSubmit={handleSubmit} noValidate>
@@ -97,6 +101,22 @@ export function CaseForm({ account, onCreated, onCancel }: Props) {
         />
         <p id="situation-count">{Array.from(situation).length.toLocaleString()} / 1,000자 (공백·줄바꿈 포함)</p>
         <FieldErrors id="situation-errors" errors={situationErrors} />
+      </div>
+
+      <div className="field">
+        <label htmlFor="display-language">표시 언어</label>
+        <select
+          id="display-language"
+          value={displayLanguage}
+          disabled={submitting}
+          onChange={(event) => setDisplayLanguage(event.target.value)}
+          aria-invalid={languageErrors.length > 0}
+          aria-describedby={languageErrors.length > 0 ? 'display-language-errors' : undefined}
+        >
+          <option value="">선택하세요</option>
+          <option value="vi">베트남어 (Tiếng Việt)</option>
+        </select>
+        <FieldErrors id="display-language-errors" errors={languageErrors} />
       </div>
 
       <div className="field">

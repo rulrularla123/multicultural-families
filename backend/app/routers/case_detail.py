@@ -73,6 +73,18 @@ def check_situation(form) -> tuple[str | None, list[dict[str, str]]]:
     return situation, []
 
 
+# 첫 데모 모국어는 베트남어 하나다 (PRD 미정 표, 2026-11-09 클라이언트 답).
+DISPLAY_LANGUAGES = {"vi"}
+
+
+def check_display_language(form) -> tuple[str | None, list[dict[str, str]]]:
+    values = form.getlist("display_language")
+    language = values[0] if len(values) == 1 else None
+    if not isinstance(language, str) or language not in DISPLAY_LANGUAGES:
+        return None, [{"field": "display_language", "reason": "표시 언어를 선택하세요. 지금은 베트남어(vi)만 선택할 수 있습니다."}]
+    return language, []
+
+
 def check_file_count(form) -> tuple[list[UploadFile], list[dict[str, str]]]:
     files = form.getlist("files")
     if not 1 <= len(files) <= MAX_FILES or any(not isinstance(item, UploadFile) for item in files):
@@ -100,11 +112,13 @@ async def read_pdfs(files: list[UploadFile]) -> tuple[list[tuple[str, bytes]], l
     return uploads, errors
 
 
-def save_case(session: Session, actor: DemoActor, situation: str, uploads: list[tuple[str, bytes]]) -> CreateCaseResponse:
+def save_case(
+    session: Session, actor: DemoActor, situation: str, display_language: str, uploads: list[tuple[str, bytes]],
+) -> CreateCaseResponse:
     with session.begin():
         case = PreparationCase(
             owner_id=actor.id, support_type="F-6-1", situation=situation,
-            display_language=None, status=CaseStatus.PREPARING.value,
+            display_language=display_language, status=CaseStatus.PREPARING.value,
             situation_version=1, document_version=1,
         )
         session.add(case)
@@ -122,10 +136,11 @@ def save_case(session: Session, actor: DemoActor, situation: str, uploads: list[
 @router.post(
     "/cases", response_model=CreateCaseResponse, status_code=201,
     openapi_extra={"requestBody": {"required": True, "content": {"multipart/form-data": {"schema": {
-        "type": "object", "required": ["support_type", "situation", "files"],
+        "type": "object", "required": ["support_type", "situation", "display_language", "files"],
         "properties": {
             "support_type": {"type": "string", "enum": ["F-6-1"]},
             "situation": {"type": "string", "minLength": 1, "maxLength": MAX_SITUATION_LENGTH},
+            "display_language": {"type": "string", "enum": sorted(DISPLAY_LANGUAGES)},
             "files": {"type": "array", "minItems": 1, "maxItems": MAX_FILES,
                       "items": {"type": "string", "format": "binary"}},
         },
@@ -143,20 +158,21 @@ async def create_case(
         async with request.form(max_files=MAX_FILES + 1, max_fields=8, max_part_size=16384) as form:
             errors = []
             for name in form:
-                if name not in {"support_type", "situation", "files"}:
+                if name not in {"support_type", "situation", "display_language", "files"}:
                     errors.append({"field": name, "reason": "지원하지 않는 입력 항목입니다."})
             support_values = form.getlist("support_type")
             if len(support_values) != 1 or support_values[0] != "F-6-1":
                 errors.append({"field": "support_type", "reason": "지원 유형은 F-6-1 하나만 제출하세요."})
             situation, situation_errors = check_situation(form)
+            display_language, language_errors = check_display_language(form)
             files, file_errors = check_file_count(form)
-            errors += situation_errors + file_errors
+            errors += situation_errors + language_errors + file_errors
             if errors:
                 return input_errors(errors)
             uploads, errors = await read_pdfs(files)
             if errors:
                 return input_errors(errors)
-            return await run_in_threadpool(save_case, session, actor, situation, uploads)
+            return await run_in_threadpool(save_case, session, actor, situation, display_language, uploads)
     except StarletteHTTPException:
         return input_errors([{"field": "files", "reason": "파일 1~5개와 올바른 multipart 입력을 제출하세요."}])
 

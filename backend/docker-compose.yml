@@ -1,0 +1,21 @@
+# 로컬 개발용 DB (PostgreSQL 16 + pgvector). 호스트의 다른 PostgreSQL과 겹치지 않게 5433을 쓴다.
+#   docker compose up -d db
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: legal
+      POSTGRES_PASSWORD: legal
+      POSTGRES_DB: legal
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legal"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

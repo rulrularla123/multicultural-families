@@ -153,3 +153,26 @@
 .review-queue {
   margin-bottom: calc(var(--space) * 3);
 }
+
+.review-item {
+  margin: 0 0 calc(var(--space) * 2);
+  padding: var(--space) calc(var(--space) * 2);
+  border: 1px solid var(--text);
+  border-radius: calc(var(--space) / 2);
+}
+
+.remove-toggle,
+.confirm-toggle {
+  display: block;
+  margin: var(--space) 0;
+}
+
+.bilingual td {
+  vertical-align: top;
+}
+
+.completion-notice {
+  margin-top: calc(var(--space) * 2);
+  padding: var(--space) calc(var(--space) * 2);
+  border: 2px solid var(--primary);
+}

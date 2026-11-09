@@ -2,11 +2,12 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { errorMessage, getCase, rejectCase } from '../api/cases'
 import type { CaseDetail } from '../types'
+import { ReviewQueue } from './ReviewQueue'
 import './MyCasesScreen.css'
 
 const ACCOUNT = 'demo-officer'
 
-// 담당자용 검토 대기 목록 API가 아직 없어(API.md) 준비 건 ID로 상세를 연다.
+// 검토 대기 목록은 임시 응답(mockReviewQueue.ts)이다. 목록에 없는 건은 준비 건 ID로 상세를 연다.
 export function OfficerReviewScreen() {
   const [idInput, setIdInput] = useState('')
   const [detail, setDetail] = useState<CaseDetail | null>(null)
@@ -30,6 +31,13 @@ export function OfficerReviewScreen() {
     }
   }
 
+  const openCase = (caseId: number) => {
+    setReason('')
+    setRejectError(null)
+    setRejectedNotice(false)
+    void load(caseId)
+  }
+
   const handleOpen = (event: FormEvent) => {
     event.preventDefault()
     const caseId = Number(idInput.trim())
@@ -38,10 +46,12 @@ export function OfficerReviewScreen() {
       setLoadError('준비 건 ID는 1 이상의 정수로 입력하세요.')
       return
     }
-    setReason('')
-    setRejectError(null)
-    setRejectedNotice(false)
-    void load(caseId)
+    openCase(caseId)
+  }
+
+  const handleOpenFromQueue = (caseId: number) => {
+    setIdInput(String(caseId))
+    openCase(caseId)
   }
 
   const handleReject = async (event: FormEvent) => {
@@ -69,6 +79,7 @@ export function OfficerReviewScreen() {
   return (
     <main className="my-cases">
       <h1>검토·승인</h1>
+      <ReviewQueue disabled={loading || rejecting} onOpen={handleOpenFromQueue} />
       <form className="case-open" onSubmit={handleOpen}>
         <div className="field">
           <label htmlFor="case-id">준비 건 ID</label>
@@ -86,7 +97,7 @@ export function OfficerReviewScreen() {
       </form>
 
       {loadError && <p className="error" role="alert">{loadError}</p>}
-      {!detail && !loadError && !loading && <p>검토할 준비 건 ID를 입력하세요.</p>}
+      {!detail && !loadError && !loading && <p>목록에서 상세를 열거나 준비 건 ID를 입력하세요.</p>}
       {loading && <p role="status">불러오는 중</p>}
 
       {detail && (

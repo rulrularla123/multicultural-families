@@ -47,12 +47,14 @@
 | 이름 | Mac | 서버 실행 | 화면에서 기능 확인 | 테스트 실행 | 남은 문제 (명령과 오류 메시지 그대로) |
 | --- | --- | --- | --- | --- | --- |
 | 권길현 | macOS (Darwin 25.6.0), Python 3.11.16(`/opt/homebrew/bin/python3.11` venv), Node v24.18.0 | `미실행` (MySQL 없음) | `미실행` (서버를 못 띄움) | `.venv/bin/python -m pytest -q tests/test_identity_patterns.py` → 25 passed. 전체 `--collect-only` → 121 tests collected. MySQL이 필요한 나머지는 `미실행` | `which mysql` → `mysql not found`. 기본 `python3`(3.9.6)로 `pip install -r requirements.txt` → `ERROR: No matching distribution found for annotated-types==0.8.0` |
-| | | | | | |
+| 김민건 | macOS 15.5, Python 3.11.9(`backend/.venv`), Node v22.19.0, npm 10.9.3 | 성공: 전용 MySQL 8.4·FastAPI를 실행하고 스키마 적용·재실행 확인 | 자동 실행 검증 성공: 실제 Chrome에서 vi 생성→점검→번역 확인·승인→체크·확인 요청→완료, 두 언어·끝 상태 읽기 전용 확인 | `backend/.venv/bin/python -m pytest -c backend/pytest.ini backend/tests backend/common_tests -q --tb=short` → 345 passed, 11 subtests passed. 화면 build·lint 통과 | 실행 보조를 통한 결과. 본인 수동 클릭 확인은 미기록. 기존 개발 DB 연결 설정이 없어 전용 검증 DB 사용. 기존 TestClient 경고 1건 |
 | | | | | | |
 | | | | | | |
 | | | | | | |
 
 > 성공 / 실패 / `미실행` / `테스트 미구성`으로 씁니다. "Claude가 완료라고 답함"은 확인이 아닙니다. MCP(브라우저 서버)로 연 화면은 참고이고, **내가 직접 브라우저에서 열어** 본 결과를 씁니다.
+
+2026-11-09 김민건 작업 환경 실행 기록(main `b8ee1fe`): 위 결과의 실행 주체는 Codex이며 실제 CLI·Chrome 자동화로 확인했다. 학생 본인이 수동으로 클릭했다는 기록으로 대신하지 않는다. [상세 실행·DB 적용 기록](../../backend/RUN-CONFIRMATION-2026-11-09.md). 다른 팀원의 실행 칸은 변경하지 않았다.
 
 **일부러 틀린 구현 시험** (테스트 담당, 서버·화면이 병합되고 테스트가 통과한 뒤)
 

@@ -3,6 +3,7 @@ import { ApiError, cancelCase, errorMessage, getCase } from '../api/cases'
 import { startCheck } from '../api/workflow'
 import type { CancelResult, CaseDetail, UserAccount } from '../types'
 import { ApprovedResultView } from './ApprovedResultView'
+import { PreparationCheckScreen } from './PreparationCheckScreen'
 
 type Props = {
   caseId: number
@@ -142,7 +143,14 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
       {checkNotice && <p role="status">{checkNotice}</p>}
       {checkError && <p className="error" role="alert">{checkError}</p>}
       {detail && APPROVED_STATES.includes(detail.status) && (
-        <ApprovedResultView key={revision} caseId={caseId} account={account} />
+        <>
+          <ApprovedResultView key={`result-${revision}`} caseId={caseId} account={account} />
+          <PreparationCheckScreen
+            caseId={caseId}
+            account={account}
+            onChanged={() => { setRevision((value) => value + 1); onChanged() }}
+          />
+        </>
       )}
       {canceled && (
         <p role="status">

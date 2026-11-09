@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { errorMessage, getCase, rejectCase } from '../api/cases'
 import type { CaseDetail } from '../types'
+import { ApprovedResultView } from './ApprovedResultView'
+import { CompletionScreen } from './CompletionScreen'
 import { OfficerCheckReview } from './OfficerCheckReview'
 import { ReviewQueue } from './ReviewQueue'
 import './MyCasesScreen.css'
@@ -122,6 +124,12 @@ export function OfficerReviewScreen() {
 
           {detail.status === '담당자 승인 대기' && (
             <OfficerCheckReview key={detail.id} caseId={detail.id} onApproved={() => { void load(detail.id) }} />
+          )}
+          {(detail.status === '준비 확인 요청' || detail.status === '준비 확인 완료') && (
+            <>
+              <ApprovedResultView key={`result-${detail.id}-${detail.status}`} caseId={detail.id} account="demo-officer" />
+              <CompletionScreen key={`completion-${detail.id}`} caseId={detail.id} onChanged={() => { void load(detail.id) }} />
+            </>
           )}
 
           {canReject ? (

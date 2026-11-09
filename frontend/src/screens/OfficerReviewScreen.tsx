@@ -7,7 +7,7 @@ import './MyCasesScreen.css'
 
 const ACCOUNT = 'demo-officer'
 
-// 검토 대기 목록은 임시 응답(mockReviewQueue.ts)이다. 목록에 없는 건은 준비 건 ID로 상세를 연다.
+// 검토 대기 목록(GET /review-queue)에서 열거나, 목록에 없는 건은 준비 건 ID로 상세를 연다.
 export function OfficerReviewScreen() {
   const [idInput, setIdInput] = useState('')
   const [detail, setDetail] = useState<CaseDetail | null>(null)

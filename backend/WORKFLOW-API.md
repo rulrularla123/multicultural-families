@@ -1,6 +1,6 @@
 # US-02·03·05·07 서버 계약 전달안
 
-- 작성: 김민건 / 2026-11-09, main `1e51283` 기준 후속 구현.
+- 작성: 김민건 / 2026-11-09, main `1e51283` 기준 후속 구현. PR 직전 최신 main `f409241` 병합 후 재검증.
 - 사용자 확정: 모국어는 베트남어(vi), 번역문은 담당자가 확인한다.
 - 코드: `app/workflow.py`, `app/routers/case_workflow.py`. 기존 case_detail router에 연결되어 main.py 수정 없이 등록된다.
 - 기존 US-01 생성 API·언어 선택·test_creation.py·공식 인수 테스트는 변경하지 않는다. 이 문서는 PM이 API.md에 옮길 구현 전달안이며 팀 합의 기록이 아니다.
@@ -101,7 +101,7 @@ preparation_items: id, item_key, text, translated_text, criterion_id, prepared(N
 ## 다른 담당에게 전달할 연결점
 
 - 이주환: Criterion 모델의 body/source/checked_on/version/is_verified/is_active/office를 사용해 F-02 API·공통 기준 시드를 작성. 기준 변경은 version을 올리고 진행 중 작업·승인 무효화 및 재점검을 연결한다. US-06은 PreparationItem.supplement_reason/supplement_resolved와 prepared를 함께 관리한다. 점검 저장과 경합하는 변경은 준비 건 → 기준 순서로 잠그며 여러 건은 ID 오름차순으로 처리한다.
-- 권길현: API.md에 후속 계약 반영, 입력 변경은 situation_version/document_version과 current_check_task_id를 갱신해 이전 작업 폐기. 기존 취소 reason=""는 그대로 호환하며 NULL로 바꿀 필요는 없다. 현재 main.py의 취소 router 등록은 별도 공유 조립 작업이다.
+- 권길현: API.md에 후속 계약 반영, 입력 변경은 situation_version/document_version과 current_check_task_id를 갱신해 이전 작업 폐기. 기존 취소 reason=""는 그대로 호환하며 NULL로 바꿀 필요는 없다. 최신 main f409241에 취소 router 등록이 반영되어 이번 브랜치에서도 사용한다.
 - 여철준: 새 API에 화면 연결, can_approve로 승인 버튼 제어, 승인 전 결과 비공개, 승인 결과의 한국어·베트남어 동시 표시. 생성 언어 선택은 이번 변경 범위 밖이다.
 - 김태후: 새 US-02·03·05·07 공식 인수 테스트 추가. 기존 acceptance 파일·기대값은 변경하지 않았다.
 
@@ -109,6 +109,10 @@ preparation_items: id, item_key, text, translated_text, criterion_id, prepared(N
 
 기존 backend/README.md의 전용 MySQL·DEMO_MODE 설정을 사용한다. 새 DB는 메타데이터로 테이블을 만들고 기존 DB는 backend에서 `DEMO_MODE=1 .venv/bin/python -m app.database`를 명시 실행한다. 새 테이블과 office/reviewed_items/review_reason을 추가하며 기존 데이터를 지우지 않는다. MySQL DDL은 자동 커밋이므로 일반 요청과 구분한다.
 
-2026-11-09 일회용 MySQL 8.4에서 `TEST_DATABASE_URL=전용_mysql_test_DB .venv/bin/python -m pytest tests common_tests -q`로 기존 인수 테스트와 새 경계 테스트 총 258개·하위 점검 11개 통과. 동시 점검/승인, 이력 저장 실패 롤백, 취소·상황·서류·기준·작업 ID 변경 뒤 늦은 결과 폐기, 과거 승인 원문 비공개, 완료 안내 재조회, 기존 DB 컬럼 추가·재실행을 확인했다. pip check와 git diff --check도 통과했다. 기존 TestClient의 httpx 지원 폐기 예정 경고 1건이 있다.
+2026-11-09 일회용 MySQL 8.4에서 `TEST_DATABASE_URL=전용_mysql_test_DB .venv/bin/python -m pytest tests common_tests -q`로 기존 인수 테스트와 새 경계 테스트 최신 main f409241의 새 인수 테스트까지 포함해 총 270개·하위 점검 11개 통과. 이전 main 기준 검증은 258개였다. 동시 점검/승인, 이력 저장 실패 롤백, 취소·상황·서류·기준·작업 ID 변경 뒤 늦은 결과 폐기, 과거 승인 원문 비공개, 완료 안내 재조회, 기존 DB 컬럼 추가·재실행을 확인했다. pip check와 git diff --check도 통과했다. 기존 TestClient의 httpx 지원 폐기 예정 경고 1건이 있다.
 
 주환님의 LLM 모듈과 단위 테스트는 원본 커밋 300c079에서 변경 없이 가져왔다. #80이 main 밖에 병합되어 생긴 의존성을 연결하기 위한 재사용이다. 실제 Gemini 통신·키 연결, 영속 작업 큐·서버 재시작 복구, 새 화면 연결, 팀원 5명 개별 실행을 검증한 기록은 아니다. 새 점검은 API 요청으로 시작하며 생성 API의 자동 시작·언어 선택을 이번 작업에서 추가하지 않았다.
+
+## PR 직전 업무 배정 변경
+
+최신 main의 CODE-STYLE은 US-05·07 담당을 김태후로 변경하고 checking.py·approval.py 등 스토리별 경로를 제시한다. 이번 구현은 그 변경 전 사용자가 요청한 US-02·03·05·07 범위를 완성한 코드이며 US-05·07은 김태후에게 인계할 구현으로 포함한다. 현재 case_workflow.py에 후속 router를 모아 기존 case_detail router에서 등록했다. 공유 코드 담당·스토리 담당은 후속 개별 파일 연결 시 이 등록을 함께 정리해 같은 경로를 중복 등록하지 않아야 한다. 이 문서가 새 담당 배정을 바꾸는 것은 아니다.

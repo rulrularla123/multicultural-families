@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { SupplementScreen } from './SupplementScreen'
 import { ApiError, cancelCase, errorMessage, getCase } from '../api/cases'
 import { startCheck } from '../api/workflow'
 import type { CancelResult, CaseDetail, UserAccount } from '../types'
@@ -135,14 +137,35 @@ export function CaseDetailPanel({ caseId, account, onClose, onChanged }: Props) 
         </dl>
       )}
       {detail && detail.status === '준비중' && (
-        <button type="button" onClick={handleCheck} disabled={checking || canceling}>
+        <button
+          type="button"
+          onClick={handleCheck}
+          disabled={checking || canceling}
+        >
           {checking ? '점검하는 중' : '자동 점검 시작'}
         </button>
       )}
       {checkNotice && <p role="status">{checkNotice}</p>}
       {checkError && <p className="error" role="alert">{checkError}</p>}
+
       {detail && APPROVED_STATES.includes(detail.status) && (
-        <ApprovedResultView key={revision} caseId={caseId} account={account} />
+        <ApprovedResultView
+          key={revision}
+          caseId={caseId}
+          account={account}
+        />
+      )}
+
+      {detail && ['서류 준비중', '준비 확인 요청', '보완 요청'].includes(detail.status) && (
+        <SupplementScreen
+          key={`${caseId}-${account}`}
+          caseId={caseId}
+          account={account}
+          onChanged={() => {
+            setRevision((value) => value + 1)
+            onChanged()
+          }}
+        />
       )}
       {canceled && (
         <p role="status">

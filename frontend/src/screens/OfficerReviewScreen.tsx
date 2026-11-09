@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SupplementScreen } from './SupplementScreen'
 import type { FormEvent } from 'react'
 import { errorMessage, getCase, rejectCase } from '../api/cases'
 import type { CaseDetail } from '../types'
@@ -124,6 +125,9 @@ export function OfficerReviewScreen() {
             <OfficerCheckReview key={detail.id} caseId={detail.id} onApproved={() => { void load(detail.id) }} />
           )}
 
+          {['서류 준비중', '준비 확인 요청', '보완 요청'].includes(detail.status) && (
+            <SupplementScreen key={detail.id} caseId={detail.id} account="demo-officer" onChanged={() => {void load(detail.id)}} />
+          )}
           {canReject ? (
             <form className="reject-form" onSubmit={handleReject}>
               <div className="field">

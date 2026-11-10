@@ -1,0 +1,19 @@
+{
+  "_note": "형식 예시다. 아래 2개는 도구가 도는지 확인하려는 질문일 뿐 평가 사례가 아니다. 중간 미팅에서 받은 클라이언트 사례(F-6 자주 받는 질문·오해하기 쉬운 상황)로 교체해 cases.json으로 저장한다. expected_provisions는 사람이 원문을 직접 확인한 조문 ID만 적는다(모르면 빈 목록).",
+  "cases": [
+    {
+      "id": "example-01",
+      "lang": "vi",
+      "message": "Tôi cần xin gia hạn thời gian lưu trú khi nào?",
+      "expected_provisions": [],
+      "source": "형식 예시 (교체 필요)"
+    },
+    {
+      "id": "example-02",
+      "lang": "ko",
+      "message": "체류지를 옮기면 신고해야 하나요?",
+      "expected_provisions": [],
+      "source": "형식 예시 (교체 필요)"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 """체류 질문 평가셋 실행기: 질문마다 인용 검증 통과율·숫자 검증·속도·비용을 기록한다.
 
-실행 중인 서버(POST /api/v1/chat)를 부른다. 정답 여부는 자동으로 판정하지 않고, 사람이 채울 칸을 남긴다.
+실행 중인 서버의 스트리밍 API(POST /api/v1/chat/stream)를 불러 첫 답변 조각까지 시간과 전체 완료 시간을 따로 잰다.
+정답 여부는 자동으로 판정하지 않고, 사람이 채울 칸을 남긴다.
 
     .venv/bin/python scripts/eval_chat.py data/eval/cases.json --out eval-out/2026-11-10
     (서버 주소를 바꾸려면 --base http://127.0.0.1:8000)
@@ -20,7 +21,7 @@ from pathlib import Path
 import httpx
 
 FIELDS = [
-    "id", "lang", "message", "http_status", "latency_s", "citations", "verified", "citation_pass_rate",
+    "id", "lang", "message", "http_status", "first_delta_s", "latency_s", "citations", "verified", "citation_pass_rate",
     "unverified_ids", "expected_provisions", "expected_hit", "number_checks", "numbers_not_found",
     "confidence", "needs_expert", "mentions_1345", "input_tokens", "output_tokens", "cost_usd", "error",
     "판정(정답/부분/오답)", "메모",
@@ -47,17 +48,31 @@ def run_case(client: httpx.Client, case: dict) -> tuple[dict, dict | None]:
     expected = case.get("expected_provisions") or []
     row["expected_provisions"] = " ".join(expected)
     started = time.perf_counter()
+    body, event = None, None
     try:
-        r = client.post("/api/v1/chat", json={"message": case["message"], "lang": row["lang"]})
+        with client.stream("POST", "/api/v1/chat/stream",
+                           json={"message": case["message"], "lang": row["lang"]}) as r:
+            row["http_status"] = r.status_code
+            if r.status_code != 200:
+                row["error"] = r.read().decode("utf-8", "replace")[:300]
+            for line in r.iter_lines() if r.status_code == 200 else ():
+                if line.startswith("event: "):
+                    event = line[7:]
+                elif line.startswith("data: "):
+                    if event == "delta" and row["first_delta_s"] == "":
+                        row["first_delta_s"] = round(time.perf_counter() - started, 2)
+                    elif event == "answer":
+                        body = json.loads(line[6:])
+                    elif event == "error":
+                        row["error"] = line[6:][:300]
     except httpx.HTTPError as e:
-        row |= {"http_status": "", "latency_s": round(time.perf_counter() - started, 2), "error": repr(e)}
-        return row, None
+        row["error"] = repr(e)
     row["latency_s"] = round(time.perf_counter() - started, 2)
-    row["http_status"] = r.status_code
-    if r.status_code != 200:
-        row["error"] = r.text[:300]
+    if body is None:  # HTTP 200이어도 answer 이벤트가 없으면 실패로 센다
+        if row["http_status"] == 200:
+            row["http_status"] = "stream-error"
+            row["error"] = row["error"] or "answer 이벤트 없음"
         return row, None
-    body = r.json()
     cits = body.get("citations") or []
     verified = [c for c in cits if c.get("verified")]
     cited_ids = {c["provision_id"] for c in cits}
@@ -84,6 +99,7 @@ def run_case(client: httpx.Client, case: dict) -> tuple[dict, dict | None]:
 def summarize(rows: list[dict], health: dict, cases_path: Path) -> str:
     ok = [r for r in rows if r["http_status"] == 200]
     lat = sorted(r["latency_s"] for r in rows if r["latency_s"] != "")
+    first = sorted(r["first_delta_s"] for r in ok if r["first_delta_s"] != "")
     cits = sum(r["citations"] for r in ok)
     ver = sum(r["verified"] for r in ok)
     costs = [r["cost_usd"] for r in ok if r["cost_usd"] != ""]
@@ -105,7 +121,9 @@ def summarize(rows: list[dict], health: dict, cases_path: Path) -> str:
         f"| 인용 없는 답변 | {len(no_cite)}건 {' '.join(no_cite)} |",
         f"| 숫자 검증 실패 | {sum(r['numbers_not_found'] for r in ok)}건 |",
         f"| 전문가 상담 표시 | {sum(r['needs_expert'] is True for r in ok)}건 |",
-        f"| 응답 시간 중앙값 / 최대 | {statistics.median(lat):.2f}초 / {lat[-1]:.2f}초 |" if lat else "| 응답 시간 | - |",
+        f"| 첫 답변 조각까지 중앙값 / 최대 | {statistics.median(first):.2f}초 / {first[-1]:.2f}초 |"
+        if first else "| 첫 답변 조각까지 | 기록 없음 |",
+        f"| 전체 완료 중앙값 / 최대 | {statistics.median(lat):.2f}초 / {lat[-1]:.2f}초 |" if lat else "| 전체 완료 | - |",
         f"| 비용 합계 | ${sum(costs):.4f} ({len(costs)}건 집계) |" if costs else "| 비용 합계 | 기록 없음 |",
         "",
         "정답 여부(오답 수)는 `results.csv`의 판정 칸을 사람이 원문과 대조해 채운 뒤 센다.",

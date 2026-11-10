@@ -60,13 +60,35 @@ async def complete(instructions: str, prompt: str) -> str:
 _SMALLTALK = re.compile(r"^\s*(ㅎㅇ|안녕\S*|하이|hi|hello|xin chào|chào\S*|cảm ơn|감사\S*|고마워\S*|ㄳ|ㅋ+|ㅎ+)\s*[!.?~]*\s*$", re.I)
 
 
+def _glossary_terms(question: str) -> list[str]:
+    """질문에 나온 베트남어 용어를 한국 법령 용어로 바꾼다 (용어가 많이 맞은 것 먼저).
+
+    베트남어는 음절이 짧아("gia hạn", "lưu trú") 단어 하나로는 대조할 수 없으므로 두 음절 묶음으로 대조한다.
+    순위는 용어의 두 음절 묶음 중 질문에 나온 비율, 같으면 맞은 개수로 정한다.
+    한 음절 용어나 4글자 이상 단어(visa, KIIP 등)는 단어 그대로 대조한다.
+    """
+    padded = " " + " ".join(re.findall(r"\w+", question.lower())) + " "
+    scored = []
+    for i, (vi, k) in enumerate(TERMS):
+        best = (0.0, 0)
+        for part in re.split(r"[/()]", vi.lower()):
+            words = re.findall(r"\w+", part)
+            pairs = [f" {a} {b} " for a, b in zip(words, words[1:])]
+            hits = sum(p in padded for p in pairs)
+            if hits:
+                best = max(best, (hits / len(pairs), hits))
+            elif any(len(w) >= 4 and f" {w} " in padded for w in words):
+                best = max(best, (0.1, 1))
+        if best[1]:
+            scored.append((-best[0], -best[1], i, k.split(" / ")[0]))
+    return [k for *_, k in sorted(scored)]
+
+
 def _rewrite(output_type, messages: list[dict]):
     q = messages[-1]["content"]
     if _SMALLTALK.match(q):
         return output_type(intent="smalltalk", queries_ko=[], domains=[], as_of=None, standalone_question=q)
-    low = q.lower()
-    ko = [k.split(" / ")[0] for vi, k in TERMS
-          if any(w in low for w in re.split(r"[ /()]", vi.lower()) if len(w) >= 4)]
+    ko = _glossary_terms(q)
     if re.search(r"[가-힣]", q):
         ko.insert(0, q)
     queries = [" ".join(dict.fromkeys(ko[:3]))] if ko else [q]

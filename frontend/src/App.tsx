@@ -1,8 +1,8 @@
+import { useState } from 'react'
 import './App.css'
 import { AppProvider, useApp } from './AppContext'
 import { ChatStoreProvider } from './chatStore'
-import Header from './components/Header'
-import Footer from './components/Footer'
+import Sidebar from './components/Sidebar'
 import Home from './screens/Home'
 import Chat from './screens/Chat'
 import Provision from './screens/Provision'
@@ -16,7 +16,7 @@ function Screen() {
     case 'home':
       return <Home />
     case 'chat':
-      return <Chat analysisId={view.analysisId} />
+      return <Chat key={view.q ?? view.analysisId ?? '_'} analysisId={view.analysisId} initialQuestion={view.q} />
     case 'provision':
       return <Provision id={view.id} />
     case 'newDocument':
@@ -30,16 +30,38 @@ function Screen() {
   }
 }
 
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem('sidebar_collapsed') === '1'
+  } catch {
+    return false
+  }
+}
+
 function Shell() {
   const { view } = useApp()
   const isChat = view.name === 'chat'
+  const [collapsed, setCollapsed] = useState(loadCollapsed)
+
+  function toggle() {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem('sidebar_collapsed', c ? '0' : '1')
+      } catch {
+        /* ignore */
+      }
+      return !c
+    })
+  }
+
   return (
-    <div className="app-shell">
-      <Header />
+    <div className={`app-shell${collapsed ? ' collapsed' : ''}`}>
+      <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`app-main${isChat ? ' app-main--chat' : ''}`}>
-        <Screen />
+        <div className="app-main__inner">
+          <Screen />
+        </div>
       </main>
-      {!isChat && <Footer />}
     </div>
   )
 }

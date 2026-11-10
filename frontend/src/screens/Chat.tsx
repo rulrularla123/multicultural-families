@@ -3,6 +3,7 @@ import { useApp } from '../AppContext'
 import { useChatThread } from '../chatStore'
 import type { DisplayMessage } from '../chatStore'
 import { streamChat } from '../api/client'
+import { addRecentQuestion } from '../recentQuestions'
 import type { ChatMessage as ApiChatMessage, StageEvent } from '../api/types'
 import CitationCard from '../components/CitationCard'
 import { DevFakeBanner } from '../components/States'
@@ -13,7 +14,7 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-export default function Chat({ analysisId }: { analysisId?: string }) {
+export default function Chat({ analysisId, initialQuestion }: { analysisId?: string; initialQuestion?: string }) {
   const { lang, t } = useApp()
   const threadKey = analysisId ?? '_general'
   const { messages, setMessages, sessionId } = useChatThread(threadKey)
@@ -29,10 +30,24 @@ export default function Chat({ analysisId }: { analysisId?: string }) {
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // 홈에서 넘어온 질문은 한 번만 보낸다.
+  // 개발 모드(StrictMode)는 화면을 한 번 내렸다 다시 올리는데, 그때 위의 정리 함수가 요청을 끊는다.
+  // 그래서 바로 보내지 않고 타이머로 미뤄, 첫 정리 때는 타이머만 취소되고 다시 올라온 화면이 보내게 한다.
+  const sentInitialRef = useRef(false)
+  useEffect(() => {
+    if (!initialQuestion || sentInitialRef.current) return
+    const timer = window.setTimeout(() => {
+      sentInitialRef.current = true
+      void send(initialQuestion)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [initialQuestion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function send(text: string) {
     const trimmed = text.trim()
     if (!trimmed || busy) return
     setInput('')
+    addRecentQuestion(trimmed, analysisId)
     const userMsg: DisplayMessage = { id: uid(), role: 'user', content: trimmed }
     const assistantId = uid()
     const history: ApiChatMessage[] = messages
@@ -82,6 +97,11 @@ export default function Chat({ analysisId }: { analysisId?: string }) {
       },
       controller.signal,
     )
+    // 답이 오기 전에 연결이 끊기면(취소·네트워크) 말줄임표로 멈춰 있지 않게 오류로 바꾼다
+    setMessages((prev) =>
+      prev.map((m) => (m.id === assistantId && m.pending ? { ...m, pending: false, error: t('chat.error') } : m)),
+    )
+    setStage(null)
     setBusy(false)
   }
 
@@ -119,11 +139,13 @@ export default function Chat({ analysisId }: { analysisId?: string }) {
 
             {m.answer && (
               <>
-                <div style={{ marginTop: 8 }}>
-                  <span className={`badge badge--confidence-${m.answer.confidence}`}>
-                    {t(`chat.confidence.${m.answer.confidence}`)}
-                  </span>
-                </div>
+                {(m.answer.kind ?? 'answer') === 'answer' && (
+                  <div style={{ marginTop: 8 }}>
+                    <span className={`badge badge--confidence-${m.answer.confidence}`}>
+                      {t(`chat.confidence.${m.answer.confidence}`)}
+                    </span>
+                  </div>
+                )}
 
                 {m.answer.needs_expert && (
                   <p style={{ color: 'var(--danger)', marginTop: 6, fontSize: 13 }}>{t('chat.needsExpert')}</p>

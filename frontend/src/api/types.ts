@@ -32,6 +32,7 @@ export interface NumberCheck {
 }
 
 export interface AnswerPayload {
+  kind?: 'answer' | 'smalltalk' | 'unclear' | 'no_results'
   lang: Lang
   as_of: string
   answer: string

@@ -1,17 +1,35 @@
 :root {
-  --primary: #1d4f91;
-  --primary-dark: #163d70;
-  --background: #f7f8fa;
+  color-scheme: light;
+  /* 팔레트: Prussian Blue #031130 · SalesPort Blue #185DF1 · Alice Blue #F3F7FE */
+  --prussian: #031130;
+  --background: #ffffff;
   --surface: #ffffff;
-  --text: #1f2933;
-  --muted: #52606d;
-  --danger: #b42318;
-  --warning: #b54708;
-  --success: #067647;
-  --highlight: #fff3bf;
+  --surface-2: #f3f7fe;
+  --surface-3: #e6eefd;
+  --border: #e3eaf8;
+  --border-strong: #cbd8f2;
+  --text: #031130;
+  --muted: #4f5d7e;
+  --faint: #8492b2;
+  --primary: #185df1;
+  --primary-dark: #0f47c2;
+  --primary-hover: #0f4fdb;
+  --primary-ink: #ffffff;
+  --primary-soft: rgba(24, 93, 241, 0.09);
+  --primary-text: #185df1;
+  --danger: #d92d3f;
+  --danger-soft: #fdeef0;
+  --warning: #b86e00;
+  --warning-soft: #fff5e3;
+  --success: #12875a;
+  --info: #185df1;
+  --highlight: rgba(24, 93, 241, 0.1);
   --space: 8px;
-  --radius: 8px;
-  --border: #e4e7eb;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --sidebar: 264px;
+  --sidebar-collapsed: 76px;
+  --shadow: 0 1px 2px rgba(3, 17, 48, 0.04), 0 4px 16px rgba(3, 17, 48, 0.05);
 }
 
 * {
@@ -28,14 +46,45 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family: "Pretendard", "Noto Sans KR", "Noto Sans", system-ui, -apple-system, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans KR", "Noto Sans", sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  /* 한국어는 어절 단위로 줄바꿈 (단어 중간에서 끊지 않음) */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
-button {
+button,
+input,
+textarea,
+select {
   font-family: inherit;
+  color: inherit;
 }
 
 a {
   color: var(--primary);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--background);
+  background-clip: padding-box;
 }

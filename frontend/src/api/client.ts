@@ -175,3 +175,18 @@ export async function streamChat(body: ChatStreamBody, handlers: ChatStreamHandl
 }
 
 export { clientId }
+
+export interface Health {
+  status: string
+  documents: number
+  provisions: number
+  chunks: number
+  embedded: number
+  llm_fake: boolean
+}
+
+export async function getHealth(): Promise<Health> {
+  const res = await fetch(BASE.replace(/\/api\/v1$/, '') + '/health')
+  if (!res.ok) throw new ApiError(res.status, 'health')
+  return res.json() as Promise<Health>
+}

@@ -57,23 +57,29 @@ async def complete(instructions: str, prompt: str) -> str:
     return f"{TAG} {prompt[:120]}"
 
 
+_SMALLTALK = re.compile(r"^\s*(ㅎㅇ|안녕\S*|하이|hi|hello|xin chào|chào\S*|cảm ơn|감사\S*|고마워\S*|ㄳ|ㅋ+|ㅎ+)\s*[!.?~]*\s*$", re.I)
+
+
 def _rewrite(output_type, messages: list[dict]):
     q = messages[-1]["content"]
+    if _SMALLTALK.match(q):
+        return output_type(intent="smalltalk", queries_ko=[], domains=[], as_of=None, standalone_question=q)
     low = q.lower()
     ko = [k.split(" / ")[0] for vi, k in TERMS
           if any(w in low for w in re.split(r"[ /()]", vi.lower()) if len(w) >= 4)]
     if re.search(r"[가-힣]", q):
         ko.insert(0, q)
     queries = [" ".join(dict.fromkeys(ko[:3]))] if ko else [q]
-    return output_type(queries_ko=queries, domains=[], as_of=None, standalone_question=q)
+    return output_type(intent="legal", queries_ko=queries, domains=[], as_of=None, standalone_question=q)
 
 
 def _answer(output_type, instructions: str, messages: list[dict]):
-    from app.generation.answer import Citation
+    from app.generation.answer import AnswerCitation
 
     provs = _provisions(_user_text(messages))[:2]
-    cits = [Citation(provision_id=pid, quote_ko=_first_sentence(txt), quote_translation=f"{TAG} {_first_sentence(txt)}")
-            for pid, _path, txt in provs]
+    cits = [AnswerCitation(provision_id=pid, quote_ko=_first_sentence(txt),
+                           quote_translation=f"{TAG} {_first_sentence(txt)}", marker=i + 1)
+            for i, (pid, _path, txt) in enumerate(provs)]
     if _is_ko(instructions):
         body = f"{TAG} 검색된 조문으로 만든 예시 답변입니다. 실제 답변은 OpenAI API 키를 넣고 LLM_FAKE=false로 실행하세요."
         follow = "지금 체류자격은 무엇인가요?"

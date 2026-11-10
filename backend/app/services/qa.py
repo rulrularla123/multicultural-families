@@ -16,6 +16,7 @@ from app import llm
 from app.core.config import get_settings
 from app.core.lang import DEFAULT_LANG, Lang, t
 from app.generation.answer import LegalAnswer, generate_answer
+from app.generation.citations import align_citations
 from app.generation.numbers import check_numbers
 from app.generation.verify import ProvisionInfo, check_citation, lookup
 from app.retrieval.pipeline import ContextItem, retrieve
@@ -66,6 +67,13 @@ async def _answer_stream(
     t_rewrite = time.perf_counter()
     # 기준일: 요청 as_of > 질문에 적힌 날짜 > 분석 당시 기준일 > 오늘
     as_of = resolve_as_of(rq, req.as_of or (None if rq.as_of or not analysis else analysis.as_of))
+
+    # 인사·잡담이나 너무 모호한 말은 법령을 찾지 않고 짧게 되묻는다 (하지 않은 질문을 지어내지 않도록)
+    if rq.intent == "smalltalk" or (rq.intent == "unclear" and not analysis):
+        payload = _guide(rq.intent, lang, as_of)
+        await _finish(session, req, analysis, payload, usage)
+        yield {"event": "answer", "data": payload.model_dump(mode="json")}
+        return
 
     yield _stage("searching", lang)
     stages: list[str] = []
@@ -134,8 +142,9 @@ async def _answer_stream(
         "chat timing rewrite=%.1fs search=%.1fs generate+verify=%.1fs retried=%s",
         t_rewrite - t0, t_search - t_rewrite, time.perf_counter() - t_search, bool(failed and len(failed) * 2 >= len(checks)),
     )
+    # 본문 [n]과 인용 목록을 marker로 짝짓고 본문에 나온 순서대로 다시 번호를 매긴다 (본문에서 안 쓴 인용은 버림)
+    ans.answer, pairs = align_citations(ans.answer, [(c.marker, (c, chk)) for c, chk in zip(ans.citations, checks)])
     # 재생성 후에도 실패한 인용은 verified=false로 남겨 앱에서 경고를 보이고, 신뢰도를 낮춘다
-    pairs = list(zip(ans.citations, checks))
     bad = sum(not chk.ok for _, chk in pairs)
     if bad and bad * 3 > len(pairs):
         ans.confidence = "low"
@@ -198,8 +207,8 @@ async def _finish(
     log.info("chat usage %s by_model=%s", payload.usage, usage.by_model)
     ref = str(analysis.id) if analysis else req.session_id
     await llm.record_usage(session, "chat", ref, usage)
-    questions = [q for q in payload.follow_up_questions if q.strip()]
-    if not questions and payload.confidence == "low":
+    questions = [q for q in payload.follow_up_questions if q.strip()] if payload.kind == "answer" else []
+    if not questions and payload.confidence == "low" and payload.kind == "answer":
         questions = [req.message]  # 답하지 못한 질문 자체를 남긴다
     if questions and (req.session_id or analysis):
         await store_open_questions(
@@ -231,8 +240,26 @@ async def _verify(session: AsyncSession, ans: LegalAnswer, as_of: date):
     return ans, checks, infos
 
 
+def _guide(intent: str, lang: Lang, as_of: date) -> AnswerPayload:
+    return AnswerPayload(
+        kind="smalltalk" if intent == "smalltalk" else "unclear",
+        lang=lang,
+        as_of=as_of,
+        answer=t(intent, lang),
+        citations=[],
+        confidence="high",
+        needs_expert=False,
+        follow_up_questions=[t(f"example.{n}", lang) for n in (1, 2, 3)],
+        notice=None,
+        disclaimer=t("disclaimer", lang),
+        sources=[],
+        search_queries=[],
+    )
+
+
 def _empty(lang: Lang, as_of: date, queries: list[str]) -> AnswerPayload:
     return AnswerPayload(
+        kind="no_results",
         lang=lang,
         as_of=as_of,
         answer=t("no_results", lang),

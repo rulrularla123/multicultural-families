@@ -148,3 +148,13 @@ def test_chat_answer_cites_real_provision(client):
     body = r.json()
     assert body["citations"] and all(c["verified"] for c in body["citations"])
     assert "1345" in body["disclaimer"]
+
+
+@pytest.mark.db
+def test_greeting_is_not_searched(client):
+    r = client.post("/api/v1/chat", json={"message": "ㅎㅇ", "lang": "ko"})
+    body = r.json()
+    assert r.status_code == 200
+    assert body["kind"] == "smalltalk"
+    assert body["citations"] == [] and body["sources"] == [] and body["search_queries"] == []
+    assert len(body["follow_up_questions"]) == 3

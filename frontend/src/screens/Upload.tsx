@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../AppContext'
+import Steps from '../components/Steps'
 import { ApiError } from '../api/client'
 import { createFromSample, listSamples, uploadDocument } from '../api/documents'
 import type { SampleDoc } from '../api/types'
@@ -62,6 +63,7 @@ export default function Upload() {
 
   return (
     <div className="stack">
+      <Steps current={1} />
       <h1 className="page-title">{t('upload.title')}</h1>
       <p className="page-desc">{t('upload.desc')}</p>
       <p className="upload-notice">{t('upload.privacyNotice')}</p>

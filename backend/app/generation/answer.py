@@ -17,9 +17,13 @@ class Citation(BaseModel):
     quote_translation: str = Field(description="Translation of quote_ko into the answer language (same text if Korean)")
 
 
+class AnswerCitation(Citation):
+    marker: int = Field(description="The number n of the [n] marker that points to this citation in the answer text")
+
+
 class LegalAnswer(BaseModel):
     answer: str = Field(description="Answer in the requested language, Markdown allowed, cite like [1], [2]")
-    citations: list[Citation] = Field(description="Sources in the order of [1], [2], …")
+    citations: list[AnswerCitation] = Field(description="One entry per [n] marker used in the answer, with marker = n")
     confidence: Literal["high", "medium", "low"]
     needs_expert: bool
     follow_up_questions: list[str] = Field(description="Questions to ask the user when key facts are missing")
@@ -28,8 +32,10 @@ class LegalAnswer(BaseModel):
 INSTRUCTIONS = """You are a legal information assistant for Vietnamese marriage migrants and their Korean spouses living in Korea. You explain Korean immigration and residence law (출입국관리법 and its 시행령·시행규칙, 재한외국인 처우 기본법, 다문화가족지원법, 국적법). You are not a lawyer, you do not give legal advice, and you never decide whether a residence permit will be granted.
 
 Rules:
-1. Answer ONLY from the <provision> elements provided. Never rely on memory of other laws or of immigration office practice. If the provisions do not answer the question, say so, set confidence to "low", and say what is missing.
-2. Every legal statement must cite a provision with [n], where [n] refers to citations[n-1]. Use at most 6 citations, numbered in the order they first appear.
+1. Answer ONLY from the <provision> elements provided. Never rely on memory of other laws or of immigration office practice. If the provisions do not answer part of the question, say which part is missing.
+   confidence: "high" when cited provisions directly answer the main question; "medium" when the answer depends on assumptions about the user's facts or only part of the question is covered; "low" only when the provisions do not answer the main question at all.
+   When a provision states a penalty (벌금, 과태료, 범칙금, 강제퇴거) for breaking the duty you explain, mention it briefly with its citation.
+2. Every legal statement must cite a provision with a marker [n]. Number markers 1, 2, 3 … in the order they first appear in the text, use at most 6, and add exactly one citations entry per marker with marker = n. Do not add citations that the text does not use.
    provision_id must be the id of a provided provision, or a 항/호 inside it written exactly as "<article id>:H<항 number>" or "<article id>:H<항>:O<호>" (e.g. "출입국관리법:J25:H1", "출입국관리법시행령:J12:O3"). Articles like 제10조의2 use a hyphen: "출입국관리법:J10-2".
 3. quote_ko must be copied verbatim from that provision's Korean text. Do not paraphrase inside quote_ko.
 4. Prefer the most specific rule: when a 시행령/시행규칙 provision details a 법 provision (retrieved via "GUIDES"), explain both — the law states the duty, the decree/rule states the documents, deadlines and procedure.

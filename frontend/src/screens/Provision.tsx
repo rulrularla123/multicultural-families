@@ -1,3 +1,4 @@
+import { ArrowUpRight, ChevronLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useApp } from '../AppContext'
 import { getProvision, getRelatedProvisions } from '../api/provisions'
@@ -39,7 +40,7 @@ export default function Provision({ id }: { id: string }) {
     <div className="stack">
       {canGoBack && (
         <button className="back-link" onClick={back}>
-          ← {t('provision.back')}
+          <ChevronLeft size={15} aria-hidden /> {t('provision.back')}
         </button>
       )}
 
@@ -62,7 +63,7 @@ export default function Provision({ id }: { id: string }) {
 
           {provision.source_url && (
             <a href={provision.source_url} target="_blank" rel="noreferrer" className="back-link">
-              {t('provision.source')} ↗
+              {t('provision.source')} <ArrowUpRight size={13} aria-hidden />
             </a>
           )}
 

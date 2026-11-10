@@ -6,6 +6,7 @@ import { ErrorBox, Loading } from '../components/States'
 import Questions from './Questions'
 import Progress from './Progress'
 import Result from './Result'
+import Steps from '../components/Steps'
 
 const POLL_MS = 2000
 
@@ -46,20 +47,30 @@ export default function DocumentFlow({ id }: { id: string }) {
   if (error) return <ErrorBox message={error} onRetry={() => void load()} />
   if (!analysis) return <Loading />
 
-  switch (analysis.status) {
-    case 'uploaded':
-      return <Loading label={t('progress.title')} />
-    case 'questions':
-      return <Questions analysis={analysis} onSubmitted={() => void load()} />
-    case 'analyzing':
-    case 'failed':
-      return <Progress analysis={analysis} onChanged={() => void load()} />
-    case 'review':
-    case 'done':
-      return <Result analysis={analysis} onChanged={() => void load()} />
-    case 'canceled':
-      return null
-    default:
-      return null
+  const step = { uploaded: 1, questions: 2, analyzing: 3, failed: 3, review: 4, done: 4, canceled: 0 }[analysis.status]
+
+  function body(a: Analysis) {
+    switch (a.status) {
+      case 'uploaded':
+        return <Loading label={t('progress.title')} />
+      case 'questions':
+        return <Questions analysis={a} onSubmitted={() => void load()} />
+      case 'analyzing':
+      case 'failed':
+        return <Progress analysis={a} onChanged={() => void load()} />
+      case 'review':
+      case 'done':
+        return <Result analysis={a} onChanged={() => void load()} />
+      default:
+        return null
+    }
   }
+
+  if (!step) return null
+  return (
+    <div>
+      <Steps current={step} done={analysis.status === 'done'} />
+      {body(analysis)}
+    </div>
+  )
 }

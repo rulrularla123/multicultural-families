@@ -3,6 +3,7 @@ import { useApp } from '../AppContext'
 import { useChatThread } from '../chatStore'
 import type { DisplayMessage } from '../chatStore'
 import { streamChat } from '../api/client'
+import { addRecentQuestion } from '../recentQuestions'
 import type { ChatMessage as ApiChatMessage, StageEvent } from '../api/types'
 import CitationCard from '../components/CitationCard'
 import { DevFakeBanner } from '../components/States'
@@ -13,7 +14,7 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-export default function Chat({ analysisId }: { analysisId?: string }) {
+export default function Chat({ analysisId, initialQuestion }: { analysisId?: string; initialQuestion?: string }) {
   const { lang, t } = useApp()
   const threadKey = analysisId ?? '_general'
   const { messages, setMessages, sessionId } = useChatThread(threadKey)
@@ -29,10 +30,19 @@ export default function Chat({ analysisId }: { analysisId?: string }) {
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // 사이드바 검색창에서 넘어온 질문은 한 번만 보낸다
+  const sentInitialRef = useRef(false)
+  useEffect(() => {
+    if (!initialQuestion || sentInitialRef.current) return
+    sentInitialRef.current = true
+    void send(initialQuestion)
+  }, [initialQuestion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function send(text: string) {
     const trimmed = text.trim()
     if (!trimmed || busy) return
     setInput('')
+    addRecentQuestion(trimmed, analysisId)
     const userMsg: DisplayMessage = { id: uid(), role: 'user', content: trimmed }
     const assistantId = uid()
     const history: ApiChatMessage[] = messages

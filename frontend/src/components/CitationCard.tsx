@@ -1,3 +1,4 @@
+import { ArrowUpRight } from 'lucide-react'
 import { useApp } from '../AppContext'
 import type { Citation } from '../api/types'
 
@@ -20,7 +21,7 @@ export default function CitationCard({ citation }: { citation: Citation }) {
           className="citation-card__link"
           onClick={() => navigate({ name: 'provision', id: citation.provision_id })}
         >
-          {t('chat.viewProvision')} ↗
+          {t('chat.viewProvision')} <ArrowUpRight size={13} aria-hidden />
         </button>
       </div>
     </div>

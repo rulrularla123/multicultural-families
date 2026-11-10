@@ -1,6 +1,6 @@
 export type View =
   | { name: 'home' }
-  | { name: 'chat'; analysisId?: string }
+  | { name: 'chat'; analysisId?: string; q?: string }
   | { name: 'provision'; id: string }
   | { name: 'newDocument' }
   | { name: 'document'; id: string }

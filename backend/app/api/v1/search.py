@@ -25,7 +25,7 @@ async def search(
     lang = lang or DEFAULT_LANG
     if rewrite:
         rq = await rewrite_query(q, lang, [])
-        queries, domains, question = rq.queries_ko, None, rq.standalone_question
+        queries, domains, question = rq.queries_ko or [q], None, rq.standalone_question
         day = resolve_as_of(rq, as_of)
     else:
         queries, domains, question, day = [q], None, q, as_of or today_kr()

@@ -139,11 +139,13 @@ export default function Chat({ analysisId, initialQuestion }: { analysisId?: str
 
             {m.answer && (
               <>
-                <div style={{ marginTop: 8 }}>
-                  <span className={`badge badge--confidence-${m.answer.confidence}`}>
-                    {t(`chat.confidence.${m.answer.confidence}`)}
-                  </span>
-                </div>
+                {(m.answer.kind ?? 'answer') === 'answer' && (
+                  <div style={{ marginTop: 8 }}>
+                    <span className={`badge badge--confidence-${m.answer.confidence}`}>
+                      {t(`chat.confidence.${m.answer.confidence}`)}
+                    </span>
+                  </div>
+                )}
 
                 {m.answer.needs_expert && (
                   <p style={{ color: 'var(--danger)', marginTop: 6, fontSize: 13 }}>{t('chat.needsExpert')}</p>

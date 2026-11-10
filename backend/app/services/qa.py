@@ -68,6 +68,13 @@ async def _answer_stream(
     # 기준일: 요청 as_of > 질문에 적힌 날짜 > 분석 당시 기준일 > 오늘
     as_of = resolve_as_of(rq, req.as_of or (None if rq.as_of or not analysis else analysis.as_of))
 
+    # 인사·잡담이나 너무 모호한 말은 법령을 찾지 않고 짧게 되묻는다 (하지 않은 질문을 지어내지 않도록)
+    if rq.intent == "smalltalk" or (rq.intent == "unclear" and not analysis):
+        payload = _guide(rq.intent, lang, as_of)
+        await _finish(session, req, analysis, payload, usage)
+        yield {"event": "answer", "data": payload.model_dump(mode="json")}
+        return
+
     yield _stage("searching", lang)
     stages: list[str] = []
 
@@ -200,8 +207,8 @@ async def _finish(
     log.info("chat usage %s by_model=%s", payload.usage, usage.by_model)
     ref = str(analysis.id) if analysis else req.session_id
     await llm.record_usage(session, "chat", ref, usage)
-    questions = [q for q in payload.follow_up_questions if q.strip()]
-    if not questions and payload.confidence == "low":
+    questions = [q for q in payload.follow_up_questions if q.strip()] if payload.kind == "answer" else []
+    if not questions and payload.confidence == "low" and payload.kind == "answer":
         questions = [req.message]  # 답하지 못한 질문 자체를 남긴다
     if questions and (req.session_id or analysis):
         await store_open_questions(
@@ -233,8 +240,26 @@ async def _verify(session: AsyncSession, ans: LegalAnswer, as_of: date):
     return ans, checks, infos
 
 
+def _guide(intent: str, lang: Lang, as_of: date) -> AnswerPayload:
+    return AnswerPayload(
+        kind="smalltalk" if intent == "smalltalk" else "unclear",
+        lang=lang,
+        as_of=as_of,
+        answer=t(intent, lang),
+        citations=[],
+        confidence="high",
+        needs_expert=False,
+        follow_up_questions=[t(f"example.{n}", lang) for n in (1, 2, 3)],
+        notice=None,
+        disclaimer=t("disclaimer", lang),
+        sources=[],
+        search_queries=[],
+    )
+
+
 def _empty(lang: Lang, as_of: date, queries: list[str]) -> AnswerPayload:
     return AnswerPayload(
+        kind="no_results",
         lang=lang,
         as_of=as_of,
         answer=t("no_results", lang),

@@ -59,6 +59,8 @@ class UsageOut(BaseModel):
 
 
 class AnswerPayload(BaseModel):
+    kind: Literal["answer", "smalltalk", "unclear", "no_results"] = Field(
+        default="answer", description="answer 외에는 검색·근거 없이 안내만 한 응답 (화면에서 확신도 표시 안 함)")
     lang: Lang
     as_of: date
     answer: str

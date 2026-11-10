@@ -11,7 +11,7 @@
 | LegalDocument (`legal_documents`) | `id` TEXT PK | 법령 ID. 법제처 법령 ID 또는 `출입국관리법` 같은 고유 이름 | F-08 |
 | | `doc_type` TEXT | `law`(법률) · `decree`(시행령) · `rule`(시행규칙) · `guide`(안내 매뉴얼) | F-02, F-08 |
 | | `title_ko` TEXT, `title_vi` TEXT NULL | 법령명, 베트남어 법령명 | F-02 |
-| | `issuer` TEXT NULL, `promulgated_on` DATE NULL | 소관 부처, 공포일 | F-02 |
+| | `issuer` TEXT NULL, `issued_date` DATE NULL | 소관 부처, 공포일 | F-02 |
 | | `effective_from` DATE NULL, `effective_to` DATE NULL | 시행일, 폐지일 (NULL이면 현행) | F-01, F-02 |
 | | `source_url` TEXT NULL, `raw_hash` TEXT NULL | 원문 출처, 원문 해시(같은 내용 재적재 감지) | F-08 |
 | | `is_sample` BOOL | 테스트용 샘플 법령. 검색에서 뺀다 | F-08 |

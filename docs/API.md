@@ -43,7 +43,7 @@
 | `POST /api/v1/documents` multipart `file`, `lang` | 업로드, 추출, 마스킹, 서류 파악, 질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
 | `GET /api/v1/documents` | 내 분석 건 목록 (최신순) | `[{id, created_at, filename, status, title, doc_type_label}]` | 없음 |
 | `GET /api/v1/documents/{id}` | 상세 | `Analysis` | 없음 |
-| `POST /api/v1/documents/{id}/answers` JSON `{answers: [{question_id, value}]}` | 답변 저장, 분석 시작 | 202 `Analysis` | `questions`·`failed` → `analyzing` |
+| `POST /api/v1/documents/{id}/answers` JSON `{answers: [{question_id, option_id?, text?}]}` | 답변 저장, 분석 시작 | 202 `Analysis` | `questions`·`failed` → `analyzing` |
 | `POST /api/v1/documents/{id}/checklist` JSON `{index, done}` | 다음 행동 체크 | 200 `Analysis` | `review` ↔ `done` |
 | `POST /api/v1/documents/{id}/cancel` | 취소 | 200 `Analysis` | 진행 중 → `canceled` |
 | `DELETE /api/v1/documents/{id}` | 삭제 | 204 | 건 삭제 |
@@ -52,7 +52,7 @@
 
 `Analysis` 응답: `{id, created_at, lang, filename, page_count, status, stage, intake, answers, result, checklist, error, masked_count}`. 원본 파일과 `job_id`는 돌려주지 않는다.
 
-- `intake`: `{doc_type_label, title, summary, questions: [{id, text, why, options?, required}]}`
+- `intake`: `{doc_type_label, title, summary, questions: [{id, text, why, options: [{id, label}], allow_free_text}]}`. 질문은 모두 답해야 하며, 선택지 중 하나를 `option_id`로 고르거나 `allow_free_text`가 참이면 `text`로 답할 수 있다
 - `result`: `{summary, summary_simple, situation_note, clauses: [{clause_id, title, category(must_check·caution·general), explanation_simple, explanation_detail, highlights, citations}], cautions: [{title, kind(risk·missing·deadline·ambiguity·outdated), explanation_simple, explanation_detail, clause_ids, citations}], next_actions: [{text, clause_id, due}], open_questions, confidence, needs_expert}`
 - 분석은 백그라운드로 돈다. 화면은 `GET /documents/{id}`를 2초마다 불러 `status`·`stage`를 본다.
 

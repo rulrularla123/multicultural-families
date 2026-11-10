@@ -88,7 +88,10 @@ export default function Upload() {
         tabIndex={0}
       >
         <p>{busy ? t('upload.uploading') : t('upload.dragHint')}</p>
-        <button className="btn" type="button" disabled={busy} onClick={(e) => e.stopPropagation()}>
+        <button className="btn" type="button" disabled={busy} onClick={(e) => {
+          e.stopPropagation()
+          inputRef.current?.click()
+        }}>
           {t('upload.choose')}
         </button>
         <input

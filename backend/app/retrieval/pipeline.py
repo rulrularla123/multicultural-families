@@ -30,7 +30,16 @@ SANCTION_SQL = text(
     JOIN provisions ps ON ps.id = e.src_id
     JOIN provisions pd ON pd.id = e.dst_id
     JOIN provisions pj ON pj.id = ps.jo_id
+    JOIN legal_documents d ON d.id = pj.document_id
     WHERE e.rel = 'REFERENCES'
+      AND (ps.effective_from IS NULL OR ps.effective_from <= :as_of)
+      AND (ps.effective_to IS NULL OR ps.effective_to > :as_of)
+      AND (pj.effective_from IS NULL OR pj.effective_from <= :as_of)
+      AND (pj.effective_to IS NULL OR pj.effective_to > :as_of)
+      AND (d.effective_from IS NULL OR d.effective_from <= :as_of)
+      AND (d.effective_to IS NULL OR d.effective_to > :as_of)
+      AND d.status = 'in_force'
+      AND (:include_samples OR NOT d.is_sample)
       AND pd.jo_id = ANY(:ids)
       AND ps.jo_id <> pd.jo_id
       AND (pj.path LIKE '%벌칙%' OR pj.path LIKE '%과태료%' OR pj.path LIKE '%범칙금%')
@@ -221,7 +230,9 @@ async def retrieve(
 
     # 선택된 조를 위반했을 때의 벌칙·과태료 조 (예: 제98조 "제36조제1항에 따른 … 의무를 위반한 사람")
     duty_ids = [i.provision_id for i in result if i.source == "search"]
-    pairs = (await session.execute(SANCTION_SQL, {"ids": duty_ids})).all() if duty_ids else []
+    pairs = (await session.execute(SANCTION_SQL, {
+        "ids": duty_ids, "as_of": as_of, "include_samples": include_samples,
+    })).all() if duty_ids else []
     rank = {pid: n for n, pid in enumerate(duty_ids)}
     sanction_ids = list(dict.fromkeys(r.sanction_id for r in sorted(pairs, key=lambda r: rank.get(r.duty_id, 99))))
     if sanction_ids:

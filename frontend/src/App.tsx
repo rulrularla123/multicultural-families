@@ -3,6 +3,7 @@ import './App.css'
 import { AppProvider, useApp } from './AppContext'
 import { ChatStoreProvider } from './chatStore'
 import Sidebar from './components/Sidebar'
+import LegalNotice from './components/LegalNotice'
 import Home from './screens/Home'
 import Chat from './screens/Chat'
 import Provision from './screens/Provision'
@@ -59,7 +60,8 @@ function Shell() {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`app-main${isChat ? ' app-main--chat' : ''}`}>
         <div className="app-main__inner">
-          <Screen />
+          <div className="app-screen"><Screen /></div>
+          <LegalNotice />
         </div>
       </main>
     </div>

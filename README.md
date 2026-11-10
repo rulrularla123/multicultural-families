@@ -36,6 +36,10 @@ frontend/   React · TypeScript 웹 (Vite)
 docs/       PRD, 백로그, API, 데이터 구조, 디자인
 ```
 
+## 문서 기준
+
+현재 구현은 2026-11-09 인수인계와 PRD v2.0을 기준으로 합니다. `docs/domain/`, `docs/interview/`, `docs/proposal/`와 이전 결정·회고는 당시 조사·제안·실행 기록입니다. 그 안의 담당자 승인 흐름·MySQL·Gemini·예전 US 번호를 현재 요구사항으로 적용하지 않습니다.
+
 ## 문서 지도
 
 | 문서 | 내용 |
@@ -51,11 +55,37 @@ docs/       PRD, 백로그, API, 데이터 구조, 디자인
 | [docs/CODE-STYLE.md](docs/CODE-STYLE.md) | 코딩 규칙, 폴더 구조 |
 | [docs/domain/](docs/domain/) | 도메인 조사 (용어, 사람·흐름, 규칙) |
 | [docs/team/](docs/team/) | 역할, 작업 규칙 |
+| [인수인계](docs/decisions/handoff-2026-11-09.md) | 최신 개발 방향과 작성 당시 작업 목록 |
+| [문서 정합성·남은 결정](docs/decisions/handoff-alignment-2026-11-10.md) | main 반영 상태, 미정 항목과 해결안 |
 | `logs/` | 일일 기록, 개인 회고 |
 
 ## 실행 방법
 
-서버·화면 구성 중입니다. 실제로 실행해 본 명령만 여기에 적습니다.
+팀의 [백엔드 실행 안내](backend/README.md)에 기록된 실행 절차입니다. 이번 문서 수정에서 새로 실행한 결과를 뜻하지 않습니다. Python 3.12·Docker·Node.js가 필요합니다.
+
+저장소 루트에서 서버를 준비합니다.
+
+```bash
+cd backend
+python3.12 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+docker compose up -d db
+.venv/bin/alembic upgrade head
+.venv/bin/python -m ingest load
+LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+다른 터미널에서 저장소 루트로 이동한 뒤 화면을 실행합니다.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+화면은 `http://localhost:5173`, 서버 상태는 `http://127.0.0.1:8000/health`입니다. DB는 PostgreSQL 16 + pgvector이며 호스트 포트는 5433입니다. `LLM_FAKE=true`는 고정된 개발용 응답으로, 실제 AI 품질 검증과 구분합니다.
+
+실제 OpenAI 연결은 서버의 `OPENAI_API_KEY` 설정과 `LLM_FAKE` 해제 후 조문 요약·임베딩 생성이 필요합니다. 비밀 값 파일을 열거나 커밋하지 않습니다. 자세한 명령은 백엔드 안내를 따릅니다.
 
 ## 작업 규칙
 

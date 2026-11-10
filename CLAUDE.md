@@ -20,6 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - API 약속: @docs/API.md
 - 코딩 스타일·폴더: @docs/CODE-STYLE.md
 
+최신 개발 방향은 @docs/decisions/handoff-2026-11-09.md. 작성 당시 진행 상태와 현재 main의 차이는 @docs/decisions/handoff-alignment-2026-11-10.md를 본다. 이전 제안서·조사·회고는 당시 기록이며 현재의 상태·스택·US 번호보다 우선하지 않는다.
+
 그 밖의 문서는 필요할 때만 연다.
 
 | 문서 | 내용 |
@@ -47,7 +49,7 @@ uploaded(업로드됨) → questions(질문 대기) → analyzing(분석중) →
 analyzing → failed(분석 실패) → analyzing   (다시 시도)
 review ↔ done                               (체크리스트를 모두 체크 / 하나라도 풂)
 uploaded·questions·analyzing·review → canceled(취소됨)
-끝 상태: done, canceled (분석 시작·재시도 거절, 삭제는 가능)
+done·canceled: 분석 시작·재시도·취소 거절, 삭제 가능. done의 체크 해제는 review로 돌아가는 예외
 ```
 
 - 다른 익명 ID(`X-Client-Id`)의 분석 건은 어떤 API로도 보이지 않는다(404).
@@ -57,7 +59,7 @@ uploaded·questions·analyzing·review → canceled(취소됨)
 - 체류 허가 가능성·개별 사건의 법적 결론을 단정하지 않는다. 필요하면 전문가·출입국 상담(1345) 안내를 붙인다(`needs_expert`).
 - 현행 여부는 수집 시점 표기가 아니라 시행일·폐지일로 계산한다.
 - `LLM_FAKE=true`인 응답에는 모든 문구에 개발용 표시를 붙인다. 시연 때는 끈다.
-- MVP 제외: 로그인·회원가입, OCR(스캔·사진 서류), 체류 허가 판정, 민원 신청·외부 기관 연동, 모바일 앱, 알림. 전체 목록은 `mvp-scope.md`.
+- MVP 제외: 실제 서류·실명 처리, 로그인·회원가입, OCR(스캔·사진 서류), 체류 허가 판정, 민원 신청·외부 기관 연동, 모바일 앱, 알림. 전체 목록은 `mvp-scope.md`.
 
 ## 문서 작성 규칙
 - 조사 내용에는 태그를 붙인다: `[사실]`(출처 링크), `[추정]`(근거 한 줄), `[가정]`(확인 못 함). AI가 알려 준 내용은 원문을 직접 열어 확인하기 전까지 `[추정]`이다.

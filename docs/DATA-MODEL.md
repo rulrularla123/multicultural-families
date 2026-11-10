@@ -12,13 +12,15 @@
 | | `doc_type` TEXT | `law`(법률) · `decree`(시행령) · `rule`(시행규칙) · `guide`(안내 매뉴얼) | F-02, F-08 |
 | | `title_ko` TEXT, `title_vi` TEXT NULL | 법령명, 베트남어 법령명 | F-02 |
 | | `issuer` TEXT NULL, `issued_date` DATE NULL | 소관 부처, 공포일 | F-02 |
-| | `effective_from` DATE NULL, `effective_to` DATE NULL | 시행일, 폐지일 (NULL이면 현행) | F-01, F-02 |
+| | `effective_from` DATE NULL, `effective_to` DATE NULL | 시행일, 폐지일. 현행 여부는 `status`와 오늘 기준 시행·폐지일을 함께 검사 | F-01, F-02 |
+| | `status` TEXT | 법령 상태 (`in_force` 등). 현행성 검사에 사용 | F-01, F-02 |
+| | `reviewed` BOOL, `reviewed_by` TEXT NULL, `reviewed_at` TIMESTAMPTZ NULL, `review_note` TEXT NULL | 법령 데이터 자체의 사람 검토 기록. 이용자 답변 승인 단계가 아님 | F-08 |
 | | `source_url` TEXT NULL, `raw_hash` TEXT NULL | 원문 출처, 원문 해시(같은 내용 재적재 감지) | F-08 |
 | | `is_sample` BOOL | 테스트용 샘플 법령. 검색에서 뺀다 | F-08 |
-| DocumentRelation (`document_relations`) | `src_doc`, `dst_doc`, `rel` (PK) | 법령 사이 관계: `DELEGATES`(법률→시행령·시행규칙), `AMENDS`, `REPLACES` | F-02 |
+| DocumentRelation (`document_relations`) | `src_doc`, `dst_doc`, `rel` (PK) | 법령 사이 관계: `GUIDES`(시행령·시행규칙 → 상위 법률), `AMENDS`, `REPLACES` | F-02 |
 | Provision (`provisions`) | `id` TEXT PK | 조문 노드 ID. 예: `출입국관리법:J25:H1` (제25조 제1항) | F-01, F-02 |
 | | `document_id` FK, `parent_id` TEXT NULL, `jo_id` TEXT | 소속 법령, 상위 노드, 소속 조 | F-02 |
-| | `level` TEXT | `pyeon`(편) · `jang`(장) · `jeol`(절) · `jo`(조) · `hang`(항) · `ho`(호) · `mok`(목) | F-02 |
+| | `level` TEXT | `pyeon`(편) · `jang`(장) · `jeol`(절) · `gwan`(관) · `jo`(조) · `hang`(항) · `ho`(호) · `mok`(목) | F-02 |
 | | `number` TEXT, `heading` TEXT NULL | 번호(제25조의2 같은 가지번호 포함), 조 제목 | F-02 |
 | | `text_ko` TEXT, `full_text_ko` TEXT | 노드 자신의 본문, 하위 항·호를 포함한 전체 | F-01, F-02 |
 | | `path` TEXT, `ordinal` INT | 표시 경로(제3장 > 제25조), 순서 | F-02 |
@@ -28,15 +30,17 @@
 | | `content` TEXT, `tokens` TEXT NULL | 내용, 한국어 토큰화 결과 | F-01 |
 | | `tsv` TSVECTOR (계산 열) | 전문 검색 | F-01 |
 | | `embedding` VECTOR(1536) NULL | 임베딩 | F-01 |
-| ProvisionEdge (`provision_edges`) | `src_id`, `dst_id`, `rel` (PK) | 조문 사이 관계: `REFERENCES`(참조), `DELEGATES`(위임), `AMENDS`, `REPEALS` | F-01, F-02 |
+| ProvisionEdge (`provision_edges`) | `src_id`, `dst_id`, `rel` (PK) | 조문 사이 관계: `REFERENCES`(참조), `GUIDES`(시행령·규칙 → 법률), `AMENDS`, `REPLACES`, `REPEALS`. 현재 수집기의 주 관계는 REFERENCES·GUIDES | F-01, F-02 |
 | | `evidence` TEXT, `method` TEXT, `confidence` FLOAT | 근거 문구, `rule`·`llm`·`manual`, 확신도 | F-02 |
 | UnresolvedReference (`unresolved_references`) | `src_id`, `evidence`, `reason` | 해석하지 못한 참조. 대상 법령을 추가 적재할 때 본다 | F-08 |
 
 ## 2. 서류 분석 건 (핵심 대상)
 
+`analyses` 등 아래 테이블의 생성 기준은 `backend/alembic/versions/0001_init.py`다. 서류 분석 서비스는 비동기 SQL로 이 테이블을 사용하며 별도의 `Analysis` ORM 클래스가 있다는 뜻은 아니다.
+
 | 모델 (테이블) | 필드 | 설명 | 기능 |
 | --- | --- | --- | --- |
-| Analysis (`analyses`) | `id` UUID PK | 분석 건 ID | F-03~F-07 |
+| 서류 분석 건 (`analyses`) | `id` UUID PK | 분석 건 ID | F-03~F-07 |
 | | `client_id` TEXT, 인덱스 | 브라우저 익명 ID. 다른 ID의 건은 보이지 않는다 | F-07 |
 | | `created_at`, `updated_at` TIMESTAMPTZ | 올린 일시, 바뀐 일시 | F-07 |
 | | `lang` TEXT | 결과 언어 `vi` · `ko` | F-09 |
@@ -47,11 +51,12 @@
 | | `stage` TEXT NULL | 분석중 세부 단계 (추출·검색·분석·검증) | F-05 |
 | | `job_id` TEXT NULL | 현재 분석 작업 ID. 취소·재시도 뒤 늦게 온 결과를 버리는 데 쓴다 | F-05, F-07 |
 | | `intake` JSONB NULL | 서류 종류, 한 줄 요약, 개인 상황 질문 목록 | F-04 |
+| | `facts` JSONB NULL | 추출한 상황 사실·확인 데이터. 상세 응답에 포함, 별도 수정 API 없음 | F-04 |
 | | `answers` JSONB NULL | 질문 답변 | F-04 |
 | | `result` JSONB NULL | 분석 결과 (요약, 조항 분류, 주의점, 다음 행동, 추가 질문, 확신도, 전문가 상담 필요) | F-05 |
 | | `checklist` JSONB NULL | 다음 행동별 체크 여부 `[{index, done}]` | F-06 |
 | | `error` TEXT NULL | 분석 실패 이유 (사용자에게 보여 줄 문구) | F-05 |
-| UsageLog (`usage_log`) | `id`, `created_at`, `kind`, `model`, `input_tokens`, `output_tokens` | LLM 사용량 기록 (비용 확인용) | 전체 |
+| UsageLog (`usage_log`) | `id`, `created_at`, `kind`, `ref`, `model_breakdown`, `input_tokens`, `output_tokens`, `cost_usd` | LLM 사용량 기록 (비용 확인용) | 전체 |
 
 ### 상태값 (`analyses.status`)
 

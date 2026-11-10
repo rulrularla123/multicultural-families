@@ -1,212 +1,69 @@
 # API 약속 (화면과 서버가 주고받는 것)
 
-> **저장 위치:** `docs/API.md`
-
-> **사용 방법**
-> 1. 오늘은 **오늘 만든 기능 하나의 항목만** 씁니다. 전체 API는 다음 차시 이후에 채웁니다. 개발자1과 개발자2가 **구현하기 전에 같이 읽고 약속**하는 문서이기도 합니다.
-> 2. 항목의 **입력·출력·실패 응답**은 `backlog.md`의 **인수 조건**과 `first-feature.md` 2절에서 가져옵니다. 인수 조건에 없는 응답을 새로 만들지 않습니다.
-> 3. 필드 이름·상태값은 `DATA-MODEL.md`와 **똑같이** 씁니다.
-> 4. 이 문서는 **공유 파일**입니다. PM만 고치고, 바꿀 일이 있으면 PR 댓글로 요청합니다. 개발자1과 개발자2가 합의한 약속을 PM이 옮겨 적습니다.
-> 5. 모르는 것은 `미정`으로 씁니다. 임의로 정하지 않습니다.
-> 6. `>`로 시작하는 안내 문장은 지워도 됩니다.
-
-- 최종 수정일: 2026-11-09
-- 근거: `backlog.md` US-01·US-04·US-08, `first-feature.md` 2절, `DATA-MODEL.md`, `backend/README.md` 서버 계약
-- 상태: 항목 1~5는 **합의**(2026-11-03 팀 채팅, 개발자1·개발자2). 공통 규칙의 오류 응답 형식·상태 코드·시간 형식은 서버 구현(#70) 기준으로 적었고 개발자2 확인 전.
+- 작성일: 2026-11-09
+- 근거: [백로그](requirements/backlog.md), [DATA-MODEL](DATA-MODEL.md)
+- 경로 앞부분은 모두 `/api/v1`이다.
 
 ## 공통 규칙
-| 항목 | 내용 |
-| --- | --- |
-| 서버 주소 | 로컬 `http://127.0.0.1:8000`. 화면은 `http://localhost:5173`에서 부른다 |
-| 응답 형식 | JSON |
-| 오류 응답 형식 | 생성(항목 1)의 입력 오류는 422 `{ok: false, errors: [{field, reason}]}`. 그 밖의 401·403·404·409는 FastAPI 기본 `{"detail": "설명"}`. 반려(항목 4)의 422는 FastAPI 기본 `{"detail": [...]}`. #70 구현과 화면 `cases.ts` 처리 기준이며 개발자2 확인 전 |
-| 인증·권한 | 회원가입 없이 요청 헤더 `X-Demo-Account`에 모의 계정을 싣는다: `demo-user-1`, `demo-user-2`, `demo-officer`. 헤더 없음·모르는 계정은 401 |
-| 상태 코드 | 서버 반려 API 기준: 401 계정 없음, 403 권한 없음, 404 준비 건 없음, 409 지금 상태에서 할 수 없음, 422 입력 오류. 실패하면 상태·이력은 바뀌지 않는다. 화면이 이 기준으로 구분할지는 오류 형식과 같이 확인 |
-| 시간 | UTC 오프셋이 붙은 ISO 8601 (예: `2026-11-03T05:31:40.808376+00:00`). 화면에서 한국 시각으로 표시 |
-
-## 항목 1: 준비 건 만들기 (기능 ID: F-01 / 스토리: US-01)
 
 | 항목 | 내용 |
 | --- | --- |
-| 요청 (경로·방식) | `POST /cases`, `multipart/form-data` |
-| 입력 | `support_type`(F-6-1만), `situation`(1~1,000자), `display_language`(`vi`만), `files`(PDF 1~5개, 각 10,485,760바이트 이하) |
-| 표시 언어 | 첫 데모 모국어는 베트남어(2026-11-09 클라이언트 답). 값은 `vi` 하나. 없거나 빈 값·다른 값이면 거절한다. 저장한 값은 상세(항목 3) `display_language`로 돌려준다 |
-| 상황 설명 글자 수 | 공백·줄바꿈을 포함해 센다. 공백·줄바꿈만 있으면 거절한다. 화면은 `Array.from(situation).length`로 센다 |
-| 출력 (성공) | `201`, `{ok: true, case: {id, support_type, status, owner_id, created_at}}`. `status`는 `준비중`, `owner_id`는 요청한 모의 계정 |
-| 실패 응답 | 준비 건을 만들지 않고 422 `{ok: false, errors: [{field, reason}]}`로 거절한 항목과 사유를 돌려준다: PDF 아님(확장자 또는 파일 시그니처), 10MB 초과, 파일 0개·6개 이상, 빈 상황 설명, 1,000자 초과, F-6-1 외 유형, 표시 언어 미선택·`vi` 외 값. `field`는 `support_type`·`situation`·`display_language`·`files`, 지원하지 않는 입력 항목은 그 항목 이름 |
-| 권한 (누가 못 하나) | 계정 없음 401, 담당자 403 |
-| 바뀌는 상태 | (시작) → 준비중 |
-| 관련 인수 조건 | `first-feature.md` 2절 1·3·4번 |
-| 화면이 쓰는 곳 | 내 준비 건 (`DESIGN.md`) |
+| 서버 주소 | 로컬 `http://127.0.0.1:8000`. 화면은 `http://localhost:5173` |
+| 익명 ID | 화면이 처음 열릴 때 UUID를 만들어 브라우저에 저장하고, 모든 요청에 `X-Client-Id` 헤더로 보낸다. 서류 분석 API는 이 헤더가 없으면 400 |
+| 언어 | 요청 본문 또는 쿼리의 `lang`: `vi`(기본) · `ko`. 답변·분석 문구가 이 언어로 나온다. 조문 원문은 항상 한국어 |
+| 응답 형식 | JSON. 질문 스트리밍만 SSE(`text/event-stream`) |
+| 오류 형식 | `{"detail": "사용자에게 보여 줄 문구"}`. 입력 오류(422)는 `{"detail": [{"loc", "msg"}]}` |
+| 상태 코드 | 400 익명 ID 없음, 404 없음(다른 익명 ID의 건 포함), 409 지금 상태에서 할 수 없음, 413 파일이 너무 큼, 415 지원하지 않는 파일, 422 입력 오류, 502 LLM 오류 |
+| 시간 | UTC 오프셋이 붙은 ISO 8601. 화면에서 한국 시각으로 표시 |
 
-## 항목 2: 준비 건 목록 (기능 ID: F-01 / 스토리: US-01)
+## 1. 질문 답변 (F-01 / US-01)
 
 | 항목 | 내용 |
 | --- | --- |
-| 요청 (경로·방식) | `GET /cases` |
-| 입력 | 없음 (계정은 헤더) |
-| 출력 (성공) | `200`, 항목 1의 `case`와 같은 형식의 배열. 본인 건만. 생성 일시 내림차순, 같으면 `id` 내림차순 |
-| 실패 응답 | 계정 없음 401, 담당자 403 |
-| 권한 (누가 못 하나) | 다른 이용자의 건은 목록에 나오지 않는다. 담당자는 403 |
-| 바뀌는 상태 | 없음 |
-| 관련 인수 조건 | `first-feature.md` 2절 2번 |
-| 화면이 쓰는 곳 | 내 준비 건 |
+| 요청 | `POST /api/v1/chat/stream` JSON `{question, lang, history?}` (`question` 1~1,000자, `history`는 최근 대화 0~6개) |
+| 응답 | SSE 이벤트 `delta`(답변 조각), `citations`(검증된 근거 목록), `done`(`{needs_expert, confidence}`), 오류는 `error`(`{detail}`) |
+| 근거 항목 | `{provision_id, document_title, number_label, quote, effective, verified}`. `verified=false`면 화면에 "원문 확인 필요" |
+| 동기 버전 | `POST /api/v1/chat` 같은 입력, 응답 `{answer, citations, needs_expert, confidence}` (테스트·디버그용) |
+| 실패 | 422 빈 질문·1,000자 초과, 502 LLM 오류 |
 
-## 항목 3: 준비 건 상세 (기능 ID: F-04 / 스토리: US-04)
+## 2. 조문 보기 (F-02 / US-02)
 
-| 항목 | 내용 |
+| 요청 | 응답 |
 | --- | --- |
-| 요청 (경로·방식) | `GET /cases/{case_id}` |
-| 입력 | 없음 |
-| 출력 (성공) | `200`, `{id, situation, display_language, support_type, status, rejection_reason}`. 담당자가 `담당자 승인 대기` 건을 볼 때만 `analysis_items`가 더 붙는다 |
-| 실패 응답 | 401 계정 없음, 403 다른 이용자의 건, 404 없음 |
-| 권한 (누가 못 하나) | 다른 이용자. 이용자 응답에는 승인 전·반려된 분석 본문과 담당자 계정 ID가 없다 |
-| 바뀌는 상태 | 없음 |
-| 관련 인수 조건 | US-04 (정상) 2번, (권한), (LLM) 1번 |
-| 화면이 쓰는 곳 | 준비 건 상태·취소, 검토·승인 |
+| `GET /api/v1/provisions?id={provision_id}&lang=vi` | `{id, document_id, document_title, doc_type, level, number_label, heading, path, full_text_ko, summary, effective, effective_from, effective_to}` |
+| `GET /api/v1/provisions/related?id={provision_id}` | `[{id, rel, direction, number_label, document_title, heading}]` (`rel`: REFERENCES·DELEGATES·AMENDS·REPEALS) |
+| `GET /api/v1/search?q=...&limit=10` | 조문 검색 결과 `[{provision_id, number_label, document_title, snippet, score}]` |
 
-## 항목 4: 담당자 반려 (기능 ID: F-04 / 스토리: US-04)
+실패: 404 없는 조문.
 
-| 항목 | 내용 |
+## 3. 서류 분석 (F-03~F-07 / US-03~US-06)
+
+| 요청 | 하는 일 | 응답 | 상태 |
+| --- | --- | --- | --- |
+| `POST /api/v1/documents` multipart `file`, `lang` | 업로드, 추출, 마스킹, 서류 파악, 질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
+| `GET /api/v1/documents` | 내 분석 건 목록 (최신순) | `[{id, created_at, filename, status, title, doc_type_label}]` | 없음 |
+| `GET /api/v1/documents/{id}` | 상세 | `Analysis` | 없음 |
+| `POST /api/v1/documents/{id}/answers` JSON `{answers: [{question_id, option_id?, text?}]}` | 답변 저장, 분석 시작 | 202 `Analysis` | `questions`·`failed` → `analyzing` |
+| `POST /api/v1/documents/{id}/checklist` JSON `{index, done}` | 다음 행동 체크 | 200 `Analysis` | `review` ↔ `done` |
+| `POST /api/v1/documents/{id}/cancel` | 취소 | 200 `Analysis` | 진행 중 → `canceled` |
+| `DELETE /api/v1/documents/{id}` | 삭제 | 204 | 건 삭제 |
+| `GET /api/v1/documents/samples` | 샘플 서류 목록 (US-09) | `[{id, title, description}]` | 없음 |
+| `POST /api/v1/documents/samples/{sample_id}` | 샘플로 분석 건 만들기 | 201 `Analysis` | → `questions` |
+
+`Analysis` 응답: `{id, created_at, lang, filename, page_count, status, stage, intake, answers, result, checklist, error, masked_count}`. 원본 파일과 `job_id`는 돌려주지 않는다.
+
+- `intake`: `{doc_type_label, title, summary, questions: [{id, text, why, options: [{id, label}], allow_free_text}]}`. 질문은 모두 답해야 하며, 선택지 중 하나를 `option_id`로 고르거나 `allow_free_text`가 참이면 `text`로 답할 수 있다
+- `result`: `{summary, summary_simple, situation_note, clauses: [{clause_id, title, category(must_check·caution·general), explanation_simple, explanation_detail, highlights, citations}], cautions: [{title, kind(risk·missing·deadline·ambiguity·outdated), explanation_simple, explanation_detail, clause_ids, citations}], next_actions: [{text, clause_id, due}], open_questions, confidence, needs_expert}`
+- 분석은 백그라운드로 돈다. 화면은 `GET /documents/{id}`를 2초마다 불러 `status`·`stage`를 본다.
+
+실패
+- 업로드: 415 PDF·DOCX 아님, 413 10MB 초과, 422 글자 추출 실패(스캔·이미지 PDF)
+- 답변: 422 필수 질문 빠짐 (`{detail, missing_question_ids}`), 409 상태가 맞지 않음
+- 체크리스트: 422 없는 번호, 409 `review`·`done`이 아님
+- 취소: 409 `done`·`canceled`
+
+## 4. 상태 확인
+
+| 요청 | 응답 |
 | --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/reject`, JSON |
-| 입력 | `{"reason": "..."}`. 앞뒤 공백을 지운 뒤 1자 이상. 다른 필드는 거절 |
-| 출력 (성공) | `200`, `{case_id, status, reason, rejected_at}`. `status`는 `준비중` |
-| 실패 응답 | 401 계정 없음, 403 이용자, 404 없음, 409 `담당자 승인 대기`가 아님·중복 반려, 422 빈 사유·공백 사유·문자열이 아닌 사유·추가 필드 |
-| 권한 (누가 못 하나) | 이용자·다른 이용자 |
-| 바뀌는 상태 | 담당자 승인 대기 → 준비중. 점검 결과 무효화와 이력 저장을 같이 한다 |
-| 관련 인수 조건 | US-04 전부 |
-| 화면이 쓰는 곳 | 검토·승인(담당자), 준비 건 상태·취소(이용자 반려 사유) |
-
-## 항목 5: 이용자 취소 (기능 ID: F-08 / 스토리: US-08)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/cancel`, 본문 없음. 취소 확인은 화면에서 받는다 |
-| 입력 | 없음 |
-| 출력 (성공) | `200`, `{case_id, status, previous_status, canceled_at}`. `status`는 `취소 완료` |
-| 실패 응답 | 401 계정 없음, 403 다른 이용자·담당자, 404 없음, 409 `준비 확인 완료`·`취소 완료` 건 |
-| 권한 (누가 못 하나) | 해당 건의 이용자만 취소한다 |
-| 바뀌는 상태 | 진행 중 6개 상태 → 취소 완료. 이력에 취소 전 상태·일시를 남기고 점검 작업 연결을 끊는다 |
-| 관련 인수 조건 | US-08 전부 |
-| 화면이 쓰는 곳 | 준비 건 상태·취소 |
-
-
-## 항목 6: 자동 점검 시작 (기능 ID: F-03·F-09 / 스토리: US-02)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/check`, 본문 없음 |
-| 입력 | 없음. 생성 뒤 화면이 이 요청을 보낸다(생성 시 자동 시작은 없음) |
-| 출력 (성공) | `200`, `{case_id, status: "담당자 승인 대기", discarded: false, message: "담당자 검토 중"}`. 분석 본문·실패 원문은 이용자에게 돌려주지 않는다. 늦게 온 결과는 `{case_id, status: 현재 상태, discarded: true}`로 돌려주고 저장하지 않는다 |
-| 실패 응답 | 422 PDF 추출 실패·식별정보 발견(위치와 수정 안내, 값은 돌려주지 않음, 준비중 유지). 409 적용 기준 없음·미검증 기준(LLM 호출 안 함). LLM 오류·60초 초과·형식 오류는 HTTP 오류 응답 대신 200으로 반환하되 서버에 "자동 점검 실패"를 기록하고 담당자 승인 대기로 보낸다(승인 가능을 뜻하지 않음) |
-| 권한 (누가 못 하나) | 해당 건의 이용자만. 담당자가 로그인하지 않아도 동작한다 |
-| 바뀌는 상태 | 준비중 → 자동 점검중 → 담당자 승인 대기 |
-| 관련 인수 조건 | US-02 전부 |
-| 화면이 쓰는 곳 | 내 준비 건 / 준비 건 상태 |
-
-## 항목 7: 점검 결과 조회 (기능 ID: F-03 / 스토리: US-02)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `GET /cases/{case_id}/check-result` |
-| 출력 (성공) | `200`, `{case_id, result_id, status, analysis_items, reviewed_items, failure_reason, review_reason, situation_version, document_version, criterion_versions, can_approve}`. 항목은 `{id, kind(cautions·possible_omissions·additional_documents), text, criterion_id, source, checked_on, needs_confirmation}`. 출처·확인일은 등록 기준에서 붙인다 |
-| 실패 응답 | 401, 403(이용자는 본인 건도), 404, 409(현재 작업·버전과 다름) |
-| 권한 (누가 못 하나) | 담당자만 |
-| 바뀌는 상태 | 없음 |
-| 관련 인수 조건 | US-02 (권한), US-03 (LLM) 1 |
-| 화면이 쓰는 곳 | 자동 점검 결과, 검토·승인 (담당자) |
-
-## 항목 8: 담당자 검토·번역 확인 (기능 ID: F-04 / 스토리: US-03)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/review`, JSON |
-| 입력 | `{result_id, reason, translation_confirmed: true, items: [{id, kind, text, criterion_id, translated_text}]}`. 최종 항목 전체를 보낸다(1~100개, ID 중복 금지). 각 항목에 등록 기준 ID와 베트남어 번역문 필수 |
-| 출력 (성공) | `200`, `{case_id, result_id, status, items}`. 원본 분석은 보존하고 검토한 항목을 따로 저장한다. 상태는 바뀌지 않는다 |
-| 실패 응답 | 422 빈 목록·미확인 번역·근거 없는 항목·빈 사유·식별정보 패턴. 409 승인 대기가 아니거나 result_id가 현재 결과가 아님 |
-| 권한 (누가 못 하나) | 담당자만 |
-| 바뀌는 상태 | 없음. 담당자·시간·근거 버전·최종 항목·삭제 항목·처리 사유를 이력에 남긴다 |
-| 관련 인수 조건 | US-03 (정상) 3, (실패·거절) 1 |
-| 화면이 쓰는 곳 | 검토·승인 (담당자) |
-
-## 항목 9: 승인 (기능 ID: F-04·F-05 / 스토리: US-03)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/approve`, JSON `{result_id}` |
-| 출력 (성공) | `200`, `{case_id, approval_id, status: "서류 준비중", approved_at, bilingual_ready: true}`. 승인된 항목으로 준비 항목(준비 여부 미선택)을 만든다 |
-| 실패 응답 | 409 미해결 자동 점검 실패·확인 필요·미확인 번역·버전 불일치·승인 대기 아님. 상태 불변 |
-| 권한 (누가 못 하나) | 담당자만. 이용자·다른 이용자 403 |
-| 바뀌는 상태 | 담당자 승인 대기 → 서류 준비중 |
-| 관련 인수 조건 | US-03 전부 |
-| 화면이 쓰는 곳 | 검토·승인 (담당자) |
-
-## 항목 10: 승인 결과·준비 항목 조회 (기능 ID: F-05·F-06 / 스토리: US-03·US-05)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `GET /cases/{case_id}/approved-result` |
-| 출력 (성공) | `200`, `{case_id, approval_id, status, display_language: "vi", bilingual_ready, items, preparation_items, not_prepared_count, approved_at, completion_notice}`. `items`는 승인된 한국어·베트남어·출처·확인일. `preparation_items`는 `{id, item_key, text, translated_text, criterion_id, prepared(null·false·true), needs_confirmation, supplement_reason, supplement_resolved}` |
-| 실패 응답 | 401, 403(다른 이용자), 404, 409(승인 전·취소 건, 승인 뒤 버전이 바뀐 진행 중 건) |
-| 권한 (누가 못 하나) | 소유자·담당자만. 승인 전 초안·검토 사유·담당자 계정은 들어 있지 않다 |
-| 바뀌는 상태 | 없음 |
-| 관련 인수 조건 | US-03 (정상) 2, US-05 (정상) 1 |
-| 화면이 쓰는 곳 | 승인 결과, 준비 항목 체크 (이용자) |
-
-## 항목 11: 준비 체크 저장 (기능 ID: F-06 / 스토리: US-05)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/preparation-items`, JSON `{items: [{id, prepared}]}` |
-| 입력 | `prepared`는 `true`(준비함)·`false`(아직)만. 일부 항목만 보내도 된다 |
-| 출력 (성공) | `200`, `{case_id, status, items}`. `items`는 현재 승인에 속한 준비 항목 전체이며 항목 10의 preparation_items와 같은 구조 |
-| 실패 응답 | 422 null·문자열·숫자, 중복 ID, 다른 건의 항목(전체 거절, 일부만 저장하지 않음). 409 서류 준비중 아님·승인 결과의 입력/기준 버전 불일치 |
-| 권한 (누가 못 하나) | 해당 건의 이용자만 |
-| 바뀌는 상태 | 없음 |
-| 관련 인수 조건 | US-05 (정상) 1, (권한) |
-| 화면이 쓰는 곳 | 준비 항목 체크 |
-
-## 항목 12: 확인 요청 (기능 ID: F-06 / 스토리: US-05)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/request-confirmation`, 본문 없음 |
-| 출력 (성공) | `200`, `{case_id, status: "준비 확인 요청", requested_at, not_prepared_count}`. "아직" 항목이 있어도 접수 |
-| 실패 응답 | 409 미선택 항목 `{detail: {message, unselected_item_ids}}`, 서류 준비중 아님, 승인 버전 불일치 |
-| 권한 (누가 못 하나) | 해당 건의 이용자만. 다른 이용자·담당자 403 |
-| 바뀌는 상태 | 서류 준비중 → 준비 확인 요청 |
-| 관련 인수 조건 | US-05 전부 |
-| 화면이 쓰는 곳 | 준비 항목 체크 |
-
-## 항목 13: 준비 확인 완료 (기능 ID: F-07 / 스토리: US-07)
-
-| 항목 | 내용 |
-| --- | --- |
-| 요청 (경로·방식) | `POST /cases/{case_id}/complete`, JSON `{notice_translation, translation_confirmed: true}` |
-| 입력 | 담당자가 확인한 베트남어 완료 안내 문구 |
-| 출력 (성공) | `200`, `{case_id, status: "준비 확인 완료", completed_at, notice_ko: "민원 접수나 체류기간 연장 허가가 아닙니다", notice_translation, bilingual_ready: true}`. 완료 안내는 승인 결과 조회(항목 10)에서도 다시 읽을 수 있다 |
-| 실패 응답 | 409 `{detail: 문자열}`: 준비 확인 요청 아님·승인 결과의 입력/기준 버전 불일치·무효화. 409 `{detail: {reasons: [...]}}`: 미해결 보완·확인 필요, 미준비 항목, 베트남어 완료 안내 미확인. 422: 필수 필드 누락·빈 번역·잘못된 형식. 모두 상태 불변 |
-| 권한 (누가 못 하나) | 담당자만 |
-| 바뀌는 상태 | 준비 확인 요청 → 준비 확인 완료 (끝 상태) |
-| 관련 인수 조건 | US-07 전부 |
-| 화면이 쓰는 곳 | 보완·완료 확인 |
-
-항목 6~13은 김민건이 구현한 서버(#91)와 `backend/WORKFLOW-API.md`를 옮긴 것이다. 화면 담당 확인 전이다. 이 API들의 오류는 `{"detail": ...}` 형식이고, detail은 문자열이거나 위에 적은 객체다.
-
-### 입력·출력 예시
-```
-요청: POST /cases  (X-Demo-Account: demo-user-1)
-  support_type=F-6-1
-  situation=체류기간 연장을 위해 준비한 서류를 확인하고 싶습니다.
-  display_language=vi
-  files=@모의서류.pdf
-응답(성공): 201
-  {"ok": true, "case": {"id": 1006, "support_type": "F-6-1", "status": "준비중", "owner_id": "demo-user-1", "created_at": "2026-11-03T05:00:00+00:00"}}
-응답(실패): 422
-  {"ok": false, "errors": [{"field": "situation", "reason": "상황 설명을 입력하세요. 공백·줄바꿈만 입력할 수 없습니다."}]}
-```
-
-## 아직 없는 항목
-> 다음 차시에 추가합니다.
-- 기준 등록·변경(F-02), 검토 대기 목록(F-09), 보완(US-06), 입력 수정·재점검
+| `GET /health` | `{status, documents, provisions, chunks, embedded, llm_fake}` |

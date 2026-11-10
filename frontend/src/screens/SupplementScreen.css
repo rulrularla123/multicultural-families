@@ -1,7 +1,0 @@
-.supplement-screen { margin-top: calc(var(--space) * 3); }
-.supplement-screen fieldset { min-width: 0; padding: calc(var(--space) * 2); margin: 0 0 calc(var(--space) * 2); border: 1px solid var(--text); border-radius: calc(var(--space) / 2); }
-.supplement-item { padding: var(--space) 0; border-bottom: 1px solid var(--text); overflow-wrap: anywhere; }
-.supplement-item p, .supplement-reason { white-space: pre-wrap; }
-.supplement-choices, .supplement-actions { display: flex; flex-wrap: wrap; gap: var(--space); margin: var(--space) 0; }
-.supplement-resolve-choice { display: block; margin: var(--space) 0; }
-.supplement-screen [role="alert"] { color: var(--danger); }

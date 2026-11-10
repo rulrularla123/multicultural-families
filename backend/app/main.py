@@ -1,52 +1,39 @@
-import os
-from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.engine import Engine
+from sqlalchemy import text
 
-from .database import build_engine, session_factory
-from .routers import (
-    cancellation,
-    case_detail,
-    criteria,
-    rejection,
-    review_queue,
-    supplementation,
+from app.api.v1 import chat, documents, provisions, questions, search
+from app.core.config import get_settings
+from app.core.db import SessionLocal
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
+settings = get_settings()
+app = FastAPI(title="다문화가족 체류 AI 도우미", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-
-def create_app(engine: Engine | None = None, demo_mode: bool | None = None) -> FastAPI:
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        enabled = demo_mode if demo_mode is not None else os.environ.get("DEMO_MODE") == "1"
-        if not enabled:
-            raise RuntimeError("로컬 모의 계정 시연 전용입니다. DEMO_MODE=1로 실행하세요.")
-        db_engine = engine if engine is not None else build_engine()
-        app.state.demo_mode = enabled
-        app.state.session_factory = session_factory(db_engine)
-        try:
-            yield
-        finally:
-            if engine is None:
-                db_engine.dispose()
-
-    app = FastAPI(title="준비 건 담당자 반려 API", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Demo-Account"],
-    )
-
-    app.include_router(case_detail.router)
-    app.include_router(rejection.router)
-    app.include_router(cancellation.router)
-    app.include_router(review_queue.router)
-    app.include_router(criteria.router)
-    app.include_router(supplementation.router)
-
-    return app
+for r in (chat.router, documents.router, provisions.router, search.router, questions.router, questions.usage_router):
+    app.include_router(r, prefix="/api/v1")
 
 
-app = create_app()
+@app.get("/health")
+async def health():
+    async with SessionLocal() as s:
+        docs = (await s.execute(text("SELECT count(*) FROM legal_documents"))).scalar_one()
+        provs = (await s.execute(text("SELECT count(*) FROM provisions"))).scalar_one()
+        chunks = (await s.execute(text("SELECT count(*), count(embedding) FROM chunks"))).one()
+    return {
+        "status": "ok",
+        "documents": docs,
+        "provisions": provs,
+        "chunks": chunks[0],
+        "embedded": chunks[1],
+        "llm_fake": settings.llm_fake,
+    }

@@ -1,16 +1,41 @@
-/* docs/DESIGN.md 토큰 표의 값. 화면에서는 이 이름만 쓴다. */
 :root {
   --primary: #1d4f91;
+  --primary-dark: #163d70;
   --background: #f7f8fa;
+  --surface: #ffffff;
   --text: #1f2933;
-  --space: 8px;
+  --muted: #52606d;
   --danger: #b42318;
+  --warning: #b54708;
+  --success: #067647;
+  --highlight: #fff3bf;
+  --space: 8px;
+  --radius: 8px;
+  --border: #e4e7eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+  font-family: "Pretendard", "Noto Sans KR", "Noto Sans", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: var(--primary);
 }

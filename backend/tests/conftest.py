@@ -1,38 +1,29 @@
 import os
+from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
-from sqlalchemy.engine import make_url
 
-from app.database import build_engine, session_factory
-from app.main import create_app
-from app.models import Attachment, Base, CaseApproval, CaseHistory, CheckResult, Criterion, PreparationCase, PreparationItem
-from app.seed import seed_demo
+# 테스트는 OpenAI를 부르지 않는다 (설정을 처음 읽기 전에 정해야 한다)
+os.environ["LLM_FAKE"] = "true"
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="session")
-def engine():
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url or not (make_url(url).database or "").endswith("_test"):
-        pytest.fail("TEST_DATABASE_URL에 이름이 _test로 끝나는 전용 MySQL 테스트 DB를 지정하세요.")
-    engine = build_engine(url)
-    Base.metadata.create_all(engine)
-    yield engine
-    engine.dispose()
+def laws_dir() -> Path:
+    return ROOT / "data" / "laws"
 
 
-@pytest.fixture
-def factory(engine):
-    factory = session_factory(engine)
-    with factory.begin() as session:
-        for model in (PreparationItem, CaseApproval, Attachment, CaseHistory, CheckResult, Criterion, PreparationCase):
-            session.execute(delete(model))
-        seed_demo(session, "test-language")
-    return factory
+@pytest.fixture(scope="session")
+def demo_dir() -> Path:
+    return ROOT / "data" / "demo"
 
 
-@pytest.fixture
-def client(engine, factory):
-    with TestClient(create_app(engine=engine, demo_mode=True)) as client:
-        yield client
+def pytest_collection_modifyitems(config, items):
+    """DB가 필요한 테스트는 TEST_DB=1일 때만 돈다 (docker compose의 pgvector + 법령 적재 후)."""
+    if os.environ.get("TEST_DB") == "1":
+        return
+    skip = pytest.mark.skip(reason="TEST_DB=1이 아니라 DB 테스트를 건너뜀")
+    for item in items:
+        if "db" in item.keywords:
+            item.add_marker(skip)

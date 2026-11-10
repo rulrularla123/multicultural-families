@@ -1,162 +1,54 @@
-# 준비 건 생성·목록·반려 서버 (US-01 / US-04)
+# 백엔드 (FastAPI · PostgreSQL + pgvector)
 
-FastAPI·MySQL로 준비 건 생성·본인 목록과 기존 담당자 반려·상세 조회를 구현했다. 사용자의 추가 지시에 따라 US-01 화면도 실제 API에 연결했다. 작업 계획과 거른 범위는 [PLAN.md](PLAN.md), 오늘 데이터 설계는 [DATA-MODEL.md](../docs/DATA-MODEL.md)를 참고한다.
+한국 출입국·체류 법령(출입국관리법, 재한외국인처우기본법, 다문화가족지원법, 국적법과 각 시행령·시행규칙)을 조문 단위로 적재하고,
+하이브리드 검색(BM25 + 벡터)과 조문 관계 그래프로 근거를 찾아 베트남어·한국어로 답한다. 인용은 원문과 코드로 대조한다.
 
-## 수업에서 제출할 범위
+## 실행 방법
 
-기본 담당은 DATA-MODEL과 이 서버이며, 사용자가 화면 연결도 이 작업에서 처리하도록 추가 지시했다. 서버 폴더의 실행 방법·계획·점검 기록은 합류를 위한 전달 자료이며 수업 공통 문서를 대체하지 않는다. 테크리더는 새 의존성·구성안을 검토하고, PM·화면 담당과 API 약속을 맞춘 뒤 병합한다.
+Python 3.12, Docker가 필요하다.
 
-- 최신 담당 업무: US-01 생성·본인 목록·Attachment. 사용자가 기술 협의 대기를 생략하고 진행하도록 지시해 [구현안](US01-API-PROPOSAL.md)의 처리 방식을 적용했다. 실제 팀 합의 기록과는 구분한다.
-- 새 흐름: 상황·모의 PDF → 생성 API → MySQL 준비 건·원본 저장 → 본인 목록·상세 조회. 기존 승인 대기 건의 반려·사유 조회도 유지한다.
-- 팀 전체 완료 조건: 이 흐름의 화면·서버·데이터 연결과 5명 개별 실행. 서버 점검 통과만으로 충족하지 않는다.
-
-## 설치와 실행
-
-Python 3.11과 전용 MySQL 데이터베이스가 필요하다. 아래 명령은 저장소의 `backend/`에서 실행한다. MySQL DB·계정은 먼저 준비하고, 접속 정보는 환경변수로만 전달한다. `.env`를 읽거나 저장하지 않는다.
-
-```sh
+```bash
 cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+docker compose up -d db                 # localhost:5433
+.venv/bin/alembic upgrade head
+.venv/bin/python -m ingest load         # data/laws → 조문·청크·관계 그래프
+LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-셸 환경에 다음 값을 설정한다.
+- `LLM_FAKE=true`: OpenAI 없이 고정 응답으로 화면 흐름만 확인한다. 답변에 `[DEV FAKE RESPONSE]`가 붙는다.
+- 실제 답변: 환경변수 `OPENAI_API_KEY`를 넣고 `LLM_FAKE`를 끈 뒤 `python -m ingest summarize --lang vi`로 요약·임베딩을 만든다.
+- 법령 원문 새로 받기: `python -m ingest fetch` (legalize-kr, 오늘 시행 중인 판을 고른다)
+- 시연용 서류: `data/demo/*.docx` (가상 안내문). 다시 만들기: `python scripts/make_demo_docs.py`
 
-| 환경변수 | 값 |
-| --- | --- |
-| DATABASE_URL | 본인의 전용 개발 DB 연결 주소. 형식: mysql+pymysql://USER:PASSWORD@HOST:PORT/DATABASE |
-| DEMO_MODE | 1 — 모의 계정 사용을 명시적으로 활성화 |
-| DEMO_LANGUAGE | 기존 US-04 모의 시드 실행 시에만 필요. US-01 생성에는 사용하지 않고 표시 언어를 NULL로 둠 |
+### 프론트엔드
 
-```sh
-.venv/bin/python -m app.database
-.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
+위 백엔드를 `http://127.0.0.1:8000`에 띄운 상태에서 실행한다. Node.js가 필요하다.
 
-- app.database는 새 테이블·파일 원본 컬럼과 언어 NULL 허용을 명시적으로 준비한다. 기존 DB 값은 유지하며 재실행할 수 있다. US-01 시연은 시드 없이 생성 요청부터 시작할 수 있다.
-- 기존 US-04 점검용 app.seed는 필요한 테이블과 모의 준비 건 5개를 만든다. 같은 ID가 이미 있으면 건너뛰며 반려된 건을 초기 상태로 되돌리지 않는다.
-- 1001·1002는 승인 대기, 1003은 준비중, 1004는 준비 확인 완료, 1005는 취소 완료다. 시드의 분석은 비공개 표시 시험용이며 공식 기준을 검증한 분석이 아니다.
-- 접속: `http://127.0.0.1:8000/docs`. React 개발 화면의 `localhost:5173`·`127.0.0.1:5173` 요청을 허용한다.
-- 모의 계정은 `demo-officer`(담당자), `demo-user-1`·`demo-user-2`(이용자)다. `X-Demo-Account` 헤더로 고른다. 실제 인증이 아니므로 이 서버는 로컬 모의 시연에만 사용한다. DEMO_MODE를 명시하지 않으면 시작을 거절한다.
-
-## 화면 담당자·PM에게 전달할 API 계약
-
-공유 `docs/API.md`·`first-feature.md`는 서버 담당 범위 밖이므로 수정하지 않았다. 아래는 현재 서버의 입력·출력 전달안이다. 실제 팀 합의가 있었다는 뜻은 아니다. 사용자 지시로 US-01 화면에 같은 형식을 적용했고 PM의 공유 문서 반영은 별도로 남긴다.
-
-### US-01 생성·본인 목록
-
-POST /cases의 multipart 입력·201/422 응답, GET /cases의 본인 필터는 [US-01 구현안](US01-API-PROPOSAL.md#1-구현한-요청응답)에 정리했다. 두 API는 기존 X-Demo-Account 방식을 사용하고 실제 PDF 추출·점검은 시작하지 않는다.
-
-### POST /cases/{case_id}/reject
-
-- 권한: `X-Demo-Account: demo-officer`.
-- 요청 JSON: `{"reason": "누락 항목을 다시 확인해 주세요."}`. 사유의 앞뒤 공백을 제거한 뒤 1자 이상이어야 한다. 추가 필드는 거절한다.
-- 현재 상태가 `담당자 승인 대기`인 건만 처리한다.
-- 성공 200: `case_id`, `status="준비중"`, `reason`, `rejected_at`(UTC 오프셋 포함 ISO 8601).
-- 준비 건 행 잠금 후 상태 변경·현재 점검 작업 해제·기존 점검 결과 무효화·처리 이력 저장을 한 트랜잭션으로 실행한다. 실패하면 모두 롤백한다.
-
-| HTTP 상태 | 경우 | 결과 |
-| --- | --- | --- |
-| 401 | 헤더 없음·등록되지 않은 모의 계정 | 변경 없음 |
-| 403 | 이용자가 반려 요청 | 변경 없음 |
-| 404 | 준비 건 없음 | 변경 없음 |
-| 409 | 승인 대기 외 상태, 중복 반려 | 변경 없음 |
-| 422 | 빈 사유·공백 사유·문자열이 아닌 사유·추가 필드·잘못된 경로 ID | 변경 없음 |
-
-오류 응답은 FastAPI의 `detail` 형식이다. 검증 오류는 항목별 목록, 권한·상태 오류는 설명 문자열이다.
-
-### GET /cases/{case_id}
-
-- 본인 이용자 또는 담당자만 조회한다. 미인증은 401, 타인 건은 403, 없는 건은 404다.
-- 공통 응답: `id`, `situation`, `display_language`, `support_type`, `status`, `rejection_reason`.
-- 담당자가 승인 대기 건을 조회할 때만 유효한 최신 점검 결과의 `analysis_items`를 추가한다.
-- 이용자 응답에는 승인 전·반려된 분석 본문이나 담당자 계정 ID를 포함하지 않는다. 반려 후 소유자는 `rejection_reason`을 확인한다.
-
-```sh
-curl -X POST http://127.0.0.1:8000/cases/1001/reject \
-  -H 'X-Demo-Account: demo-officer' \
-  -H 'Content-Type: application/json' \
-  -d '{"reason":"누락 항목을 다시 확인해 주세요."}'
-curl http://127.0.0.1:8000/cases/1001 -H 'X-Demo-Account: demo-user-1'
-```
-
-## 서버 자체 점검 (공식 테스트는 테스트 담당)
-
-backend/tests는 이번 구현자가 검증에 사용한 보조 자료다. 다른 사람의 테스트 파일·기대값은 수정하지 않았다. 공식 테스트 작성, 완성 기준의 테스트 내용, 병합 후 일부러 틀린 구현 시험은 테스트 담당에게 전달한다.
-
-`TEST_DATABASE_URL`에 개발 DB와 분리한 MySQL 테스트 DB 주소를 설정한다. 이름은 `_test`로 끝나야 한다. 테스트는 해당 DB의 준비 건·점검 결과·이력 데이터를 지우고 다시 심으므로 전용 모의 데이터 DB만 사용한다. 테스트 URL에 다른 DB 드라이버나 이름을 주면 실행을 거절한다.
-
-```sh
-.venv/bin/python -m pytest -q
-.venv/bin/python -m pip check
-```
-
-검증 결과와 범위는 [VERIFICATION.md](VERIFICATION.md)에 기록했다. 단위 테스트용 다른 DB로 MySQL을 대체하지 않는다.
-
-## 합류 때 담당자에게 전달할 것
-
-| 담당 | 전달·확인할 내용 |
-| --- | --- |
-| PM | US-04 반려·사유 표시의 작은 흐름과 API 전달안. first-feature·API에 팀 결정을 기록하고 남긴 인수 조건은 담당·기한 지정 |
-| 개발자2 | POST 반려와 GET 사유 조회 연결. 사유 입력·오류·로딩·권한별 화면, 임시 응답 교체 |
-| 테크리더 | backend 폴더·MySQL 연결·requirements 검토. 승인한 공통 설정과 직접 실행한 명령만 CLAUDE·README에 반영 |
-| 테스트 담당 | 정상·빈 사유·권한·잘못된 상태·분석 비공개·동시 반려·롤백의 자체 점검 결과. 공식 테스트와 일부러 틀린 구현 시험은 별도로 수행 |
-| 전원 | 각자 Mac에서 서버·실제 화면·테스트 실행 후 결과를 PM에게 전달. 이 문서에서 대신 완료 처리하지 않음 |
-
-이번 검토에서 공유 파일을 수정하거나 실제 팀 채팅·PR 댓글을 보내지는 않았다. 위 표는 전달할 내용이다.
-
-## PM에게 전달할 AI 기록 초안
-
-아래는 이번 작업에서 실제로 거른 내용과 반영 결과다. 공유 ai-check-log는 PM이 모아 쓰므로 직접 수정하지 않았다. 날짜는 실제 작성일이며, 팀 전체 판단·합의를 대신하지 않는다.
-
-| 날짜 | 쓴 사람 | 어디서 | AI가 말한 것 | 확인 결과 | 채택/보류 | 이유 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 2026-11-02 | 김민건 (작성 보조 AI 활용) | 기능 계획 | 전체 PRD 모델 6종의 상세 필드를 먼저 작성 | 오늘 선택한 서버 기능은 US-04이며 세 모델로 반려 흐름을 구성할 수 있음 | 보류 | 오늘은 세 모델 중심으로 정리하고 나머지 상세화는 해당 스토리에서 진행 |
-| 2026-11-02 | 김민건 (작성 보조 AI 활용) | 기능 구현 | 반려 후 사유를 보여 줄 최소 상세 조회를 함께 구현 | 소유자의 반려 사유 확인과 타인 접근 거절을 실제 MySQL·HTTP로 점검 | 채택 | 반려 요청만으로 끝내지 않고 화면 담당자가 사유 표시까지 연결할 수 있음 |
-| 2026-11-02 | 김민건 (작성 보조 AI 활용) | 기능 구현 | 단일 트랜잭션과 행 잠금으로 상태·이력을 함께 저장 | 동시 요청 200·409 및 이력 1개, 이력 저장 실패 시 롤백 확인 | 채택 | 중복 반려와 상태·이력 불일치 방지. 서버 자체 점검으로 구분 |
-
-## 후속 연결
-
-- US-02의 수정·재제출·PDF 추출·Gemini 점검은 구현하지 않았다. 이 서버에서 반려된 건은 준비중으로 돌아가며, 이후 재제출은 US-02 담당 구현과 연결한다.
-- US-03 승인, US-06 보완, US-08 취소와 실제 사용자 인증은 추가하지 않았다.
-- PRD의 전체 모델 중 생성·반려에 필요한 네 테이블을 구현했다. 기준 버전은 반려 당시 점검 결과의 스냅샷으로 이력에 보존하며 실제 Criterion 연결은 US-02 범위다.
-- US-01 React 화면 연결과 실제 브라우저 점검은 이번에 수행했다. US-04 반려 화면·공유 문서 반영·팀원 5명 각자 실행은 별도 작업이며 대신 완료 표시하지 않는다.
-
-## 참고한 공식 문서
-
-- [FastAPI 테스트](https://fastapi.tiangolo.com/tutorial/testing/): TestClient 사용.
-- [SQLAlchemy SELECT](https://docs.sqlalchemy.org/en/20/core/selectable.html): with_for_update 행 잠금.
-
-## 최신 원격 작업과의 대조 (2026-11-02)
-
-origin/main은 여전히 공유 양식 상태다. 새로 확인한 PM 작업 브랜치 `docs/first-feature-hyun731`의 first-feature는 US-01을 선택하고 있다. 기존 US-04는 먼저 구현한 반려 서버 작업이고, 이번에는 최신 배분에 맞춰 US-01 생성·목록을 추가한다. US-01 범위와 병합 순서·서버 폴더·API 계약을 PM·테크리더와 맞춘 뒤 통합한다. 해당 PM 브랜치를 이 작업에 병합하거나 공유 문서를 덮어쓰지 않았다.
-
-## US-01 화면 실행
-
-서버를 위 절차로 127.0.0.1:8000에 실행한 뒤 별도 터미널에서 다음을 실행한다.
-
-```sh
+```bash
 cd frontend
-npm ci
-npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+npm install
+npm run dev                             # http://localhost:5173
 ```
 
-http://127.0.0.1:5173 에서 모의 이용자 1·2를 고른다. 새 준비 건에서 상황과 모의 PDF를 제출하면 실제 MySQL에 저장되고 목록에 나타난다. 새로고침해도 남으며 다른 이용자로 바꾸면 해당 이용자 목록만 보인다. 표시 언어·반려 화면은 추가하지 않았다.
+- 화면은 `http://127.0.0.1:8000/api/v1`을 호출한다 (`frontend/src/api/client.ts`). 백엔드 CORS는 `http://localhost:5173`·`http://127.0.0.1:5173`만 허용한다(`app/core/config.py`의 `cors_origins`).
+- `npm run build`(타입 체크 + 빌드), `npm run lint`(oxlint)로 확인한다.
+- Claude Code 세션에서는 저장소 루트의 `.claude/launch.json`에 등록된 `frontend-dev` 설정으로 미리보기 브라우저에서 바로 열 수 있다.
 
-API 기본 주소는 http://127.0.0.1:8000 이며 필요하면 Vite 실행 환경의 VITE_API_BASE_URL로 바꿀 수 있다. 비밀 값을 넣는 설정이 아니다. 모의 응답 파일은 제거했으며 서버가 꺼져 있으면 오류와 다시 불러오기 버튼을 보여 준다. 서버의 기본 허용 화면 주소는 localhost:5173과 127.0.0.1:5173이다.
+## 테스트
 
+```bash
+.venv/bin/python -m pytest -q                    # DB 없이 도는 단위 테스트
+TEST_DB=1 .venv/bin/python -m pytest -q          # 위 DB 적재 후 API 전체 흐름까지
+```
 
-## 공통 모듈·CI
+## 구조
 
-공통 모듈의 입력·출력 제안과 호출자 책임은 [COMMON-MODULES.md](COMMON-MODULES.md)를 참고한다.
-
-[Backend tests](../.github/workflows/backend-tests.yml)는 PR·main 푸시·수동 실행에서 다음 검사를 하도록 구성했다. Python 3.11과 일회용 MySQL 8.4 컨테이너를 사용한다.
-
-1. `python -m pip install -r requirements.txt`
-2. `python -m pip check`
-3. `python -m unittest discover -s common_tests -v` (공통 모듈, DB 불필요)
-4. `python -m pytest -q` (기존 서버 테스트, 전용 MySQL)
-
-모두 backend/에서 실행한다. CI DB는 매번 새로 생성하는 preparation_test이며 동적 포트와 컨테이너 전용 모의 계정을 쓴다. 개발·운영 DB나 Secrets는 필요 없다. 로컬 MySQL 테스트는 위 TEST_DATABASE_URL 안내를 따른다.
-
-CI 설정 작성과 실제 CI 통과는 구분한다. 현재 의존성 설치가 실패해 전체 고정 환경과 MySQL 회귀는 미검증이다. PDF 테스트가 건너뛰어지면 추출 성공 검증으로 보지 않는다. 병합 전 CI 결과에서 PDF 테스트 실행과 전체 테스트 통과를 확인한다.
+| 폴더 | 내용 |
+| --- | --- |
+| `ingest/` | 법령 수집(fetch)·파싱(편·장·절·조·항·호·목)·참조 추출·관계 그래프·청크·요약·임베딩 |
+| `app/retrieval/` | 질의 재작성, BM25·벡터 검색(RRF), 그래프 확장 |
+| `app/generation/` | 답변 생성(구조화 출력), 인용 검증, 숫자 검증 |
+| `app/documents/` | 서류 추출(PDF·DOCX), 조항 분할, 서류 파악·질문, 분석 |
+| `app/services/` | 채팅·서류 분석 상태 처리 |
+| `app/api/v1/` | `/api/v1/chat`, `/documents`, `/provisions`, `/search` |

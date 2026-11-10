@@ -16,6 +16,7 @@ from app import llm
 from app.core.config import get_settings
 from app.core.lang import DEFAULT_LANG, Lang, t
 from app.generation.answer import LegalAnswer, generate_answer
+from app.generation.citations import align_citations
 from app.generation.numbers import check_numbers
 from app.generation.verify import ProvisionInfo, check_citation, lookup
 from app.retrieval.pipeline import ContextItem, retrieve
@@ -134,8 +135,9 @@ async def _answer_stream(
         "chat timing rewrite=%.1fs search=%.1fs generate+verify=%.1fs retried=%s",
         t_rewrite - t0, t_search - t_rewrite, time.perf_counter() - t_search, bool(failed and len(failed) * 2 >= len(checks)),
     )
+    # 본문 [n]과 인용 목록을 marker로 짝짓고 본문에 나온 순서대로 다시 번호를 매긴다 (본문에서 안 쓴 인용은 버림)
+    ans.answer, pairs = align_citations(ans.answer, [(c.marker, (c, chk)) for c, chk in zip(ans.citations, checks)])
     # 재생성 후에도 실패한 인용은 verified=false로 남겨 앱에서 경고를 보이고, 신뢰도를 낮춘다
-    pairs = list(zip(ans.citations, checks))
     bad = sum(not chk.ok for _, chk in pairs)
     if bad and bad * 3 > len(pairs):
         ans.confidence = "low"

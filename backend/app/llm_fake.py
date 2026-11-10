@@ -69,11 +69,12 @@ def _rewrite(output_type, messages: list[dict]):
 
 
 def _answer(output_type, instructions: str, messages: list[dict]):
-    from app.generation.answer import Citation
+    from app.generation.answer import AnswerCitation
 
     provs = _provisions(_user_text(messages))[:2]
-    cits = [Citation(provision_id=pid, quote_ko=_first_sentence(txt), quote_translation=f"{TAG} {_first_sentence(txt)}")
-            for pid, _path, txt in provs]
+    cits = [AnswerCitation(provision_id=pid, quote_ko=_first_sentence(txt),
+                           quote_translation=f"{TAG} {_first_sentence(txt)}", marker=i + 1)
+            for i, (pid, _path, txt) in enumerate(provs)]
     if _is_ko(instructions):
         body = f"{TAG} 검색된 조문으로 만든 예시 답변입니다. 실제 답변은 OpenAI API 키를 넣고 LLM_FAKE=false로 실행하세요."
         follow = "지금 체류자격은 무엇인가요?"

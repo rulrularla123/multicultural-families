@@ -21,6 +21,21 @@ GRAPH_SLOTS = 3
 MAX_AMEND_SHARE = 0.5
 # 리랭크 후보로 올릴 그래프 조 수 (개정 관계는 제한 없이 모두 올린다)
 GRAPH_POOL = 20
+# 선택된 조의 의무를 어기면 어떻게 되는지(벌칙·과태료) 답할 수 있도록 함께 넣는 벌칙 조 수
+MAX_SANCTION = 2
+SANCTION_SQL = text(
+    """
+    SELECT ps.jo_id AS sanction_id, pd.jo_id AS duty_id
+    FROM provision_edges e
+    JOIN provisions ps ON ps.id = e.src_id
+    JOIN provisions pd ON pd.id = e.dst_id
+    JOIN provisions pj ON pj.id = ps.jo_id
+    WHERE e.rel = 'REFERENCES'
+      AND pd.jo_id = ANY(:ids)
+      AND ps.jo_id <> pd.jo_id
+      AND (pj.path LIKE '%벌칙%' OR pj.path LIKE '%과태료%' OR pj.path LIKE '%범칙금%')
+    """
+)
 # 체류자격 표(시행령 제12조 등)처럼 아주 긴 조는 통째로 넣으면 답변이 느리고 부정확해진다.
 # 이 길이를 넘으면 검색에 걸린 항 + 기한·제재가 들어 있는 항만 넣는다.
 MAX_ARTICLE_CHARS = 6000
@@ -56,6 +71,17 @@ PROVISIONS_SQL = text(
     WHERE p.id = ANY(:ids)
     """
 )
+
+
+def add_sanctions(selected: list["ContextItem"], sanctions: list["ContextItem"], context_k: int) -> list["ContextItem"]:
+    """선택된 조의 의무를 어겼을 때의 벌칙 조를 넣는다. 자리가 없으면 점수가 가장 낮은 조부터 밀어낸다."""
+    have = {i.provision_id for i in selected}
+    new = [i for i in sanctions if i.provision_id not in have][:MAX_SANCTION]
+    if not new:
+        return selected
+    keep = sorted(selected, key=lambda i: -i.score)[: max(0, context_k - len(new))]
+    kept = {i.provision_id for i in keep}
+    return [i for i in selected if i.provision_id in kept] + new
 
 
 @dataclass
@@ -192,6 +218,22 @@ async def retrieve(
             item.score = sc
 
     result = _select(items, hits, set(seed_pool), context_k, graph_slots)
+
+    # 선택된 조를 위반했을 때의 벌칙·과태료 조 (예: 제98조 "제36조제1항에 따른 … 의무를 위반한 사람")
+    duty_ids = [i.provision_id for i in result if i.source == "search"]
+    pairs = (await session.execute(SANCTION_SQL, {"ids": duty_ids})).all() if duty_ids else []
+    rank = {pid: n for n, pid in enumerate(duty_ids)}
+    sanction_ids = list(dict.fromkeys(r.sanction_id for r in sorted(pairs, key=lambda r: rank.get(r.duty_id, 99))))
+    if sanction_ids:
+        srows = (await session.execute(PROVISIONS_SQL, {"ids": sanction_ids})).all()
+        by_id = {r.id: r for r in srows if r.status == "in_force"}
+        duty_of = {r.sanction_id: r.duty_id for r in pairs}
+        sanctions = [
+            ContextItem(r.id, r.document_id, r.title_ko, r.title_vi, r.doc_type, r.path, r.full_text_ko,
+                        r.summary_vi, r.effective_from, r.status, 0.0, f"sanction: REFERENCES → {duty_of[sid]}")
+            for sid in sanction_ids if (r := by_id.get(sid))
+        ]
+        result = add_sanctions(result, sanctions, context_k)
     added = [i for i in result if i.source.startswith("graph:")]
     if added:
         log.info("그래프 조 %d개 추가: %s", len(added), "; ".join(f"{i.provision_id} ({i.source})" for i in added))

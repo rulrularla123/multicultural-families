@@ -47,3 +47,17 @@ def test_summary_counts_citation_pass_rate_and_marks_fake(tmp_path):
     assert "3/4 (75.0%)" in md
     assert "성공 2, 실패 1" in md
     assert "$0.0300" in md
+
+
+def test_completion_latency_excludes_failed_requests(tmp_path):
+    """평가 속도: 실패를 성공 답변 완료 시간에 섞어 빠른 성능으로 보고하지 않는다."""
+    rows = [
+        _row(id="ok1", http_status=200, latency_s=10, citations=1, verified=1,
+             numbers_not_found=0, needs_expert=False),
+        _row(id="ok2", http_status=200, latency_s=20, citations=1, verified=1,
+             numbers_not_found=0, needs_expert=False),
+        _row(id="fail", http_status=502, latency_s=0.1),
+    ]
+    md = summarize(rows, {"llm_fake": True}, tmp_path / "cases.json")
+    assert "15.00초 / 20.00초" in md
+    assert "실패 응답 중앙값 / 최대 | 0.10초 / 0.10초" in md

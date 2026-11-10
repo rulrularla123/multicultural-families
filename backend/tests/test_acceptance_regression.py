@@ -324,7 +324,6 @@ def test_us01_empty_or_too_long_question_is_422(client, message):
 
 
 @pytest.mark.db
-@pytest.mark.xfail(strict=True, reason="백로그 US-01 (실패): 공백만 있는 질문을 거절해야 하지만 현재 min_length=1만 검사한다")
 def test_us01_whitespace_only_question_is_422(client):
     """US-01 (실패): 공백만 있는 질문은 거절한다."""
     assert client.post("/api/v1/chat", json={"message": "   \n ", "lang": "vi"}).status_code == 422
@@ -339,7 +338,6 @@ def test_us01_1000_character_question_is_accepted(client):
 
 
 @pytest.mark.db
-@pytest.mark.xfail(strict=True, reason="백로그 US-01 (LLM): 질문의 식별정보를 마스킹해야 하지만 현재 질문 경로에 mask() 호출이 없다")
 def test_us01_identifiers_in_question_are_masked_before_llm(client, llm_calls):
     """US-01 (LLM): 질문에 식별정보 패턴이 있으면 마스킹한 질문만 LLM에 보낸다."""
     r = client.post("/api/v1/chat", json={"message": f"제 번호 {PHONE}로 체류기간 연장 안내를 받을 수 있나요?",

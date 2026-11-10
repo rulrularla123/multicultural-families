@@ -35,7 +35,7 @@ def load_cases(path: Path) -> list[dict]:
     if len(ids) != len(set(ids)):
         raise SystemExit("사례 id가 중복됨")
     for c in cases:
-        if not 1 <= len(c["message"]) <= 1000:
+        if not c["message"].strip() or not 1 <= len(c["message"]) <= 1000:
             raise SystemExit(f"{c['id']}: 질문은 1~1,000자")
         if c.get("lang", "vi") not in ("vi", "ko"):
             raise SystemExit(f"{c['id']}: lang은 vi 또는 ko")
@@ -98,7 +98,8 @@ def run_case(client: httpx.Client, case: dict) -> tuple[dict, dict | None]:
 
 def summarize(rows: list[dict], health: dict, cases_path: Path) -> str:
     ok = [r for r in rows if r["http_status"] == 200]
-    lat = sorted(r["latency_s"] for r in rows if r["latency_s"] != "")
+    lat = sorted(r["latency_s"] for r in ok if r["latency_s"] != "")
+    failed_lat = sorted(r["latency_s"] for r in rows if r["http_status"] != 200 and r["latency_s"] != "")
     first = sorted(r["first_delta_s"] for r in ok if r["first_delta_s"] != "")
     cits = sum(r["citations"] for r in ok)
     ver = sum(r["verified"] for r in ok)
@@ -124,6 +125,8 @@ def summarize(rows: list[dict], health: dict, cases_path: Path) -> str:
         f"| 첫 답변 조각까지 중앙값 / 최대 | {statistics.median(first):.2f}초 / {first[-1]:.2f}초 |"
         if first else "| 첫 답변 조각까지 | 기록 없음 |",
         f"| 전체 완료 중앙값 / 최대 | {statistics.median(lat):.2f}초 / {lat[-1]:.2f}초 |" if lat else "| 전체 완료 | - |",
+        f"| 실패 응답 중앙값 / 최대 | {statistics.median(failed_lat):.2f}초 / {failed_lat[-1]:.2f}초 |"
+        if failed_lat else "| 실패 응답 시간 | 기록 없음 |",
         f"| 비용 합계 | ${sum(costs):.4f} ({len(costs)}건 집계) |" if costs else "| 비용 합계 | 기록 없음 |",
         "",
         "정답 여부(오답 수)는 `results.csv`의 판정 칸을 사람이 원문과 대조해 채운 뒤 센다.",

@@ -28,6 +28,23 @@
   max-width: 880px;
 }
 
+/* 사이드바가 접히거나 모바일로 바뀌어도 공통 법률 안내를 읽을 수 있다. */
+.legal-notice {
+  display: none;
+  flex-shrink: 0;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.legal-notice p { margin: 0 0 4px; }
+.collapsed .legal-notice { display: block; }
+.app-main--chat .app-main__inner {
+  display: flex;
+  flex-direction: column;
+}
+.app-main--chat .app-screen { flex: 1; min-height: 0; }
+
 /* ---------- Sidebar ---------- */
 .app-shell.collapsed {
   grid-template-columns: var(--sidebar-collapsed) 1fr;
@@ -1445,7 +1462,9 @@
 
 /* ---------- Mobile ---------- */
 @media (max-width: 860px) {
-  .app-shell {
+  .legal-notice { display: block; }
+  .app-shell,
+  .app-shell.collapsed {
     grid-template-columns: 1fr;
   }
 
@@ -1478,9 +1497,14 @@
     display: none;
   }
 
-  .sidebar__lang {
+  .sidebar__lang,
+  .collapsed .sidebar__lang {
+    display: block;
     margin: 0;
   }
+  .collapsed .sidebar__top { flex-direction: row; }
+  .collapsed .sidebar__item { width: auto; padding: 10px 12px; }
+  .collapsed .sidebar__item span { display: inline; }
 
   .sidebar__nav {
     order: 3;

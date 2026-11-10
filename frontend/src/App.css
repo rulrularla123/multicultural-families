@@ -77,8 +77,9 @@
   background: linear-gradient(145deg, #3474ff, var(--primary) 55%, #0b3cb0);
   color: #fff;
   font-weight: 800;
-  font-size: 15px;
-  letter-spacing: -0.02em;
+  font-size: 13px; /* 프로젝트명 '모아봄' 세 글자가 44px 안에 들어가도록 */
+  letter-spacing: -0.04em;
+  white-space: nowrap;
   box-shadow: 0 6px 20px rgba(24, 93, 241, 0.45);
 }
 

@@ -8,7 +8,21 @@ import re
 from typing import TypeVar
 
 T = TypeVar("T")
-_MARKER = re.compile(r"\[(\d{1,2})\]")
+_MARKER = re.compile(r"\[(\d+)\]")
+
+
+def alignment_errors(answer: str, markers: list[int]) -> list[str]:
+    """번호 정리 전에 누락·중복을 검사한다. 표시만 지워 근거 없는 문장을 남기지 않는다."""
+    used = {int(m.group(1)) for m in _MARKER.finditer(answer)}
+    available = set(markers)
+    errors = []
+    if not used:
+        errors.append("The answer has no citation markers.")
+    if missing := used - available:
+        errors.append(f"Citation markers without sources: {sorted(missing)}")
+    if duplicates := {n for n in markers if markers.count(n) > 1}:
+        errors.append(f"Ambiguous duplicate citation markers: {sorted(duplicates)}")
+    return errors
 
 
 def align_citations(answer: str, citations: list[tuple[int, T]]) -> tuple[str, list[T]]:

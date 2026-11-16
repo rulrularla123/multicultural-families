@@ -24,9 +24,11 @@
 | 응답 | SSE `stage`(`{stage, label}`) → `delta`(`{text}`)… → 선택적 `reset`(`{}`, 기존 임시 답변 지움) → `answer`(최종 JSON). 오류는 `error`(`{message}`). 근거·검증 결과는 `answer`에 포함 |
 | 근거 항목 | `{index, provision_id, quote_ko, quote_translation, verified, verify_error}`. `verified=false`면 화면에 "원문 확인 필요" |
 | 동기 버전 | `POST /api/v1/chat` 같은 입력, 응답 `AnswerPayload`(아래 필드) (테스트·디버그용) |
-| 실패 | 422 입력 형식·길이 오류. 서류 후속 질문은 헤더 없음 400, 본인 건 아님 404. 스트림 시작 뒤 오류는 HTTP 상태 대신 SSE `error`로 전달 |
+| 실패 | 422 입력 형식·길이 오류·공백만 있는 질문. 서류 후속 질문은 헤더 없음 400, 본인 건 아님 404. 스트림 시작 뒤 오류는 HTTP 상태 대신 SSE `error`로 전달 |
 
-`AnswerPayload`: `{lang, as_of, answer, citations, confidence, needs_expert, follow_up_questions, notice, disclaimer, sources, search_queries, number_checks, analysis_id, usage}`. `confidence`는 `high`·`medium`·`low`이며, `sources`는 `{provision_id, document_id, title, path, retrieved_by}` 목록이다. `number_checks`에 숫자 검증 결과가 포함된다.
+`AnswerPayload`: `{kind, lang, as_of, answer, citations, confidence, needs_expert, follow_up_questions, notice, disclaimer, sources, search_queries, number_checks, analysis_id, usage}`. `confidence`는 `high`·`medium`·`low`이며, `sources`는 `{provision_id, document_id, title, path, retrieved_by}` 목록이다. `number_checks`에 숫자 검증 결과가 포함된다.
+
+현재 질문·이전 대화·서류 후속 질문 맥락의 식별정보 패턴은 질의 재작성·검색·답변 생성 전에 마스킹한다. 본문 인용 번호와 근거 목록의 연결이 누락되거나 모호하면 한 번 재생성한다. 그래도 연결하지 못하면 해당 법적 주장 대신 근거 확인 실패 안내를 반환한다(`confidence=low`, `needs_expert=true`).
 
 ## 2. 조문 보기 (F-02 / US-02)
 

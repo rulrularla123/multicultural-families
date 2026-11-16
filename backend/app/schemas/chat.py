@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.lang import Lang
 
@@ -22,6 +22,14 @@ class ChatRequest(BaseModel):
     )
     analysis_id: UUID | None = Field(default=None, description="분석한 문서에 대한 후속 질문이면 그 분석 ID")
     client_id: str | None = Field(default=None, exclude=True, description="서버가 X-Client-Id 헤더로 채운다")
+
+
+    @field_validator("message")
+    @classmethod
+    def reject_blank_message(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("message must contain non-whitespace characters")
+        return value  # 공백·줄바꿈도 원래 1,000자 상한에 포함한다.
 
 
 class CitationOut(BaseModel):

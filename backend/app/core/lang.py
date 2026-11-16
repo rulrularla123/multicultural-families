@@ -42,6 +42,11 @@ MESSAGES: dict[str, dict[Lang, str]] = {
     "example.1": {"vi": "Tôi phải gia hạn visa F-6 trước khi nào?", "ko": "체류기간 연장은 언제까지 신청해야 하나요?"},
     "example.2": {"vi": "Chuyển nhà thì phải khai báo trong mấy ngày?", "ko": "이사하면 며칠 안에 신고해야 하나요?"},
     "example.3": {"vi": "Điều kiện nhập quốc tịch cho người kết hôn di trú là gì?", "ko": "결혼이민자 귀화 요건이 뭔가요?"},
+    "citation_unverified": {
+        "vi": "Không thể xác minh trích dẫn trong câu trả lời. Vui lòng hỏi lại hoặc liên hệ "
+              "Trung tâm tư vấn người nước ngoài (☎ 1345).",
+        "ko": "답변의 근거 인용을 확인하지 못했습니다. 질문을 다시 보내거나 외국인종합안내센터(☎ 1345)에 문의하세요.",
+    },
     "low_confidence": {
         "vi": "Căn cứ pháp lý tìm được chưa đủ để trả lời chắc chắn. Nên hỏi thêm chuyên gia hoặc ☎ 1345.",
         "ko": "찾은 근거가 확실히 답하기에 부족합니다. 전문가나 외국인종합안내센터(☎ 1345)에 확인하세요.",

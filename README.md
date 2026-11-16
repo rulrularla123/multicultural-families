@@ -46,7 +46,7 @@ docs/       PRD, 백로그, API, 데이터 구조, 디자인
 | --- | --- |
 | [docs/PRD.md](docs/PRD.md) | 무엇을, 왜 만드는지 |
 | [docs/requirements/user-flows.md](docs/requirements/user-flows.md) | 질문하기·서류 분석하기 흐름 |
-| [docs/requirements/backlog.md](docs/requirements/backlog.md) | 스토리 US-01~US-09와 인수 조건 |
+| [docs/requirements/backlog.md](docs/requirements/backlog.md) | 스토리 US-01~US-08과 인수 조건 (US-09는 제외) |
 | [docs/decisions/mvp-scope.md](docs/decisions/mvp-scope.md) | MVP 포함·제외, 다루는 법령 |
 | [docs/STACK.md](docs/STACK.md) | 기술 스택과 이유 |
 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) | 법령·서류 분석 건 데이터와 상태값 |

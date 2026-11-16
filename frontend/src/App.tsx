@@ -3,6 +3,7 @@ import './App.css'
 import { AppProvider, useApp } from './AppContext'
 import { ChatStoreProvider } from './chatStore'
 import Sidebar from './components/Sidebar'
+import LegalNotice from './components/LegalNotice'
 import Home from './screens/Home'
 import Chat from './screens/Chat'
 import Provision from './screens/Provision'
@@ -65,7 +66,8 @@ function Shell() {
       <main className={`app-main${isChat ? ' app-main--chat' : ''}`}>
         {/* 화면이 바뀔 때만 짧게 나타나는 효과 (key가 바뀌면 다시 재생) */}
         <div className="app-main__inner screen-enter" key={viewKey(view)}>
-          <Screen />
+          <div className="app-screen"><Screen /></div>
+          <LegalNotice />
         </div>
       </main>
     </div>

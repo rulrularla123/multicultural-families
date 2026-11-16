@@ -13,10 +13,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import llm
+from app.common.identity_patterns import mask
 from app.core.config import get_settings
 from app.core.lang import DEFAULT_LANG, Lang, t
 from app.generation.answer import LegalAnswer, generate_answer
-from app.generation.citations import align_citations
+from app.generation.citations import align_citations, alignment_errors
 from app.generation.numbers import check_numbers
 from app.generation.verify import ProvisionInfo, check_citation, lookup
 from app.retrieval.pipeline import ContextItem, retrieve
@@ -54,15 +55,20 @@ async def answer_stream(
 async def _answer_stream(
     session: AsyncSession, req: ChatRequest, analysis: "AnalysisContext | None", usage: llm.Usage
 ) -> AsyncIterator[dict]:
+    # 현재 질문뿐 아니라 이전 대화·분석 맥락도 재작성·임베딩·답변 요청 전에 가린다.
+    req = req.model_copy(update={
+        "message": mask(req.message)[0],
+        "history": [m.model_copy(update={"content": mask(m.content)[0]}) for m in req.history],
+    })
     lang: Lang = req.lang or DEFAULT_LANG
     history = [m.model_dump() for m in req.history]
     settings = get_settings()
-    document = analysis.block if analysis else None
+    document = mask(analysis.block)[0] if analysis else None
 
     t0 = time.perf_counter()
     yield _stage("rewriting", lang)
     # 문서 후속 질문은 "이 벌금"처럼 문서를 가리키므로, 질의 재작성에 문서 요약을 대화 맥락으로 준다
-    rewrite_history = [{"role": "assistant", "content": analysis.brief}, *history] if analysis else history
+    rewrite_history = [{"role": "assistant", "content": mask(analysis.brief)[0]}, *history] if analysis else history
     rq = await rewrite_query(req.message, lang, rewrite_history)
     t_rewrite = time.perf_counter()
     # 기준일: 요청 as_of > 질문에 적힌 날짜 > 분석 당시 기준일 > 오늘
@@ -81,13 +87,13 @@ async def _answer_stream(
     async def on_stage(name: str) -> None:
         stages.append(name)
 
-    queries = list(dict.fromkeys([*rq.queries_ko, *(analysis.search_queries[:1] if analysis else [])]))
+    queries = list(dict.fromkeys([*rq.queries_ko, *([mask(q)[0] for q in analysis.search_queries[:1]] if analysis else [])]))
     items = await retrieve(
         session,
         queries,
         rq.standalone_question,
         as_of,
-        None,  # 코퍼스가 교통 법령뿐이라 분야 필터는 쓰지 않는다
+        None,  # 출입국·체류 관련 코퍼스 전체에서 찾는다
         include_samples=settings.include_samples,
         on_stage=on_stage,
     )
@@ -122,12 +128,13 @@ async def _answer_stream(
     yield _stage("verifying", lang)
     ans, checks, infos = await _verify(session, ans, as_of)
     failed = [c for c in checks if not c.ok]
-    # 인용 절반 이상이 틀렸을 때만 다시 생성한다 (재생성은 응답 시간을 두 배로 늘린다)
-    if failed and len(failed) * 2 >= len(checks):
-        log.info("인용 검증 실패 %d건, 재생성", len(failed))
+    marker_errors = alignment_errors(ans.answer, [c.marker for c in ans.citations])
+    retried = bool(marker_errors or (failed and len(failed) * 2 >= len(checks)))
+    if retried:
+        log.info("인용 검증 실패: 원문 %d건, 번호 %d건. 재생성", len(failed), len(marker_errors))
         feedback = (
             "Internal check (do not mention it to the user): some citations in your draft were invalid:\n"
-            + "\n".join(f"- {c.provision_id}: {c.reason}" for c in failed)
+            + "\n".join([*(f"- {c.provision_id}: {c.reason}" for c in failed), *marker_errors])
             + "\nWrite the complete answer to the user's question again from scratch, citing only provided provisions "
             "with verbatim quotes. The user must not see any reference to this correction."
         )
@@ -140,9 +147,21 @@ async def _answer_stream(
 
     log.info(
         "chat timing rewrite=%.1fs search=%.1fs generate+verify=%.1fs retried=%s",
-        t_rewrite - t0, t_search - t_rewrite, time.perf_counter() - t_search, bool(failed and len(failed) * 2 >= len(checks)),
+        t_rewrite - t0, t_search - t_rewrite, time.perf_counter() - t_search, retried,
     )
-    # 본문 [n]과 인용 목록을 marker로 짝짓고 본문에 나온 순서대로 다시 번호를 매긴다 (본문에서 안 쓴 인용은 버림)
+    # 재생성 후에도 본문과 근거를 연결하지 못하면 법적 주장을 최종 답변으로 공개하지 않는다.
+    if alignment_errors(ans.answer, [c.marker for c in ans.citations]):
+        payload = _empty(lang, as_of, queries)
+        payload.kind = "answer"
+        payload.answer = t("citation_unverified", lang)
+        payload.needs_expert = True
+        payload.notice = t("low_confidence", lang)
+        payload.analysis_id = analysis.id if analysis else None
+        await _finish(session, req, analysis, payload, usage)
+        yield {"event": "answer", "data": payload.model_dump(mode="json")}
+        return
+
+    # 검증을 통과한 연결만 번호를 정리한다. 사용하지 않은 인용은 목록에서 뺀다.
     ans.answer, pairs = align_citations(ans.answer, [(c.marker, (c, chk)) for c, chk in zip(ans.citations, checks)])
     # 재생성 후에도 실패한 인용은 verified=false로 남겨 앱에서 경고를 보이고, 신뢰도를 낮춘다
     bad = sum(not chk.ok for _, chk in pairs)

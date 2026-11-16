@@ -2101,3 +2101,36 @@
 @media (max-width: 520px) {
   .span-3 { grid-column: span 12; }
 }
+
+/* ---------- 애니메이션 (최소한만) ---------- */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 화면 전환 */
+.screen-enter {
+  animation: fade-up 0.2s ease-out;
+}
+
+/* 새 채팅 말풍선 */
+.chat-bubble {
+  animation: fade-up 0.18s ease-out;
+}
+
+/* 움직임 줄이기를 켠 사용자에게는 모든 효과를 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

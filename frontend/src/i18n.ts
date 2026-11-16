@@ -119,8 +119,6 @@ const ko: Dict = {
   'upload.privacyNotice': '외국인등록번호·여권번호·전화번호 같은 식별정보는 자동으로 가려지며 저장하지 않습니다. 원본 파일도 저장하지 않습니다.',
   'upload.choose': '파일 선택',
   'upload.dragHint': '파일을 여기로 끌어다 놓거나 눌러서 선택하세요',
-  'upload.or': '또는',
-  'upload.samples': '샘플 서류로 체험하기',
   'upload.uploading': '올리는 중…',
   'upload.error.size': '파일이 너무 커요 (최대 10MB).',
   'upload.error.type': '지원하지 않는 파일 형식이에요 (PDF·DOCX만 가능).',
@@ -129,6 +127,7 @@ const ko: Dict = {
 
   'questions.title': '몇 가지만 확인할게요',
   'questions.why': '왜 묻나요?',
+  'questions.terms': '어려운 말 풀이',
   'questions.freeText': '직접 입력',
   'questions.freeTextPlaceholder': '답변을 입력하세요',
   'questions.submit': '분석 시작',
@@ -306,8 +305,6 @@ const vi: Dict = {
     'Số đăng ký người nước ngoài, số hộ chiếu, số điện thoại sẽ được tự động che và không lưu lại. File gốc cũng không được lưu.',
   'upload.choose': 'Chọn file',
   'upload.dragHint': 'Kéo thả file vào đây hoặc nhấn để chọn',
-  'upload.or': 'hoặc',
-  'upload.samples': 'Dùng thử với giấy tờ mẫu',
   'upload.uploading': 'Đang tải lên…',
   'upload.error.size': 'File quá lớn (tối đa 10MB).',
   'upload.error.type': 'Định dạng không hỗ trợ (chỉ PDF·DOCX).',
@@ -316,6 +313,7 @@ const vi: Dict = {
 
   'questions.title': 'Vài câu hỏi để hiểu rõ hơn',
   'questions.why': 'Vì sao hỏi điều này?',
+  'questions.terms': 'Giải thích từ khó',
   'questions.freeText': 'Nhập câu trả lời',
   'questions.freeTextPlaceholder': 'Nhập câu trả lời của bạn',
   'questions.submit': 'Bắt đầu phân tích',

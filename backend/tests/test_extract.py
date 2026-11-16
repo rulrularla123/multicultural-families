@@ -4,7 +4,7 @@ from app.documents.extract import DOCX, MAX_BYTES, PDF, UnsupportedDocument, ext
 
 
 def test_docx_sample(demo_dir):
-    e = extract_text("a.docx", DOCX, (demo_dir / "sample-extension-guide.docx").read_bytes())
+    e = extract_text("a.docx", DOCX, (demo_dir / "demo-extension-supplement-notice.docx").read_bytes())
     assert e.method == "docx" and "체류기간 만료일" in e.text
 
 

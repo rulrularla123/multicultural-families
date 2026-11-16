@@ -1142,23 +1142,6 @@
   padding: 10px 12px;
 }
 
-.sample-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sample-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  background: var(--surface);
-}
-
 /* ---------- Questions ---------- */
 .question-card {
   border: 1px solid var(--border);
@@ -1625,7 +1608,6 @@
 .result-summary-card,
 .result-aside,
 .question-card,
-.sample-item,
 .clause-card,
 .next-action-item,
 .chat-bubble--assistant,
@@ -2133,4 +2115,36 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 상황 질문의 어려운 말 풀이 */
+.term-list {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+
+.term-list div {
+  display: flex;
+  gap: 6px;
+}
+
+.term-list dt {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.term-list dt::after {
+  content: ":";
+}
+
+.term-list dd {
+  margin: 0;
+  color: var(--muted);
 }

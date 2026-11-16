@@ -98,6 +98,16 @@ export default function Questions({ analysis, onSubmitted }: { analysis: Analysi
               </button>
             ))}
           </div>
+          {q.terms && q.terms.length > 0 && (
+            <dl className="term-list" aria-label={t('questions.terms')}>
+              {q.terms.map((term) => (
+                <div key={term.term}>
+                  <dt>{term.term}</dt>
+                  <dd>{term.meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
           {q.allow_free_text && (
             <input
               className="question-freetext"

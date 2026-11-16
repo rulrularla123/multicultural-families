@@ -2,8 +2,6 @@
 
 POST   /api/v1/documents                 파일 업로드 → 추출·마스킹 → 서류 파악·개인화 질문 (status=questions)
 GET    /api/v1/documents                 내 분석 건 목록
-GET    /api/v1/documents/samples         샘플 서류 목록
-POST   /api/v1/documents/samples/{id}    샘플로 분석 건 만들기
 GET    /api/v1/documents/{id}            상태·단계·결과 (화면이 폴링)
 POST   /api/v1/documents/{id}/answers    답변 제출 → 백그라운드 분석 (status=analyzing). 분석 실패 건 재시도
 POST   /api/v1/documents/{id}/checklist  다음 행동 체크 (review ↔ done)
@@ -11,7 +9,6 @@ POST   /api/v1/documents/{id}/cancel     취소 (진행 중 → canceled)
 DELETE /api/v1/documents/{id}            삭제
 """
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
@@ -21,24 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.lang import Lang
-from app.documents.extract import DOCX, UnsupportedDocument
+from app.documents.extract import UnsupportedDocument
 from app.services import documents as svc
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-DEMO_DIR = Path(__file__).resolve().parents[3] / "data" / "demo"
-# 시연용 가상 문서 (실제 서류·개인정보 아님)
-SAMPLES = {
-    "extension-guide": {
-        "file": "sample-extension-guide.docx",
-        "title": {"vi": "Mẫu · Hướng dẫn gia hạn lưu trú (F-6-1)", "ko": "샘플 · 체류기간 연장 안내문 (F-6-1)"},
-    },
-    "address-report": {
-        "file": "sample-address-change-notice.docx",
-        "title": {"vi": "Mẫu · Thông báo khai báo thay đổi nơi cư trú", "ko": "샘플 · 체류지 변경신고 안내"},
-    },
-}
-
 
 def client_id(x_client_id: Annotated[str | None, Header()] = None) -> str:
     cid = (x_client_id or "").strip()
@@ -84,25 +67,6 @@ async def upload(
     data = await file.read()
     try:
         return await svc.create_analysis(session, cid, file.filename or "document", file.content_type, data, lang)
-    except (UnsupportedDocument, svc.AnalysisError) as e:
-        raise _errors(e) from e
-
-
-@router.get("/samples")
-async def samples():
-    return [{"id": k, "title": v["title"], "filename": v["file"]} for k, v in SAMPLES.items()]
-
-
-@router.post("/samples/{sample_id}", status_code=201)
-async def analyze_sample(
-    sample_id: str, lang: Lang = Form("vi"), cid: str = Depends(client_id), session: AsyncSession = Depends(get_session)
-):
-    sample = SAMPLES.get(sample_id)
-    if sample is None:
-        raise HTTPException(404, "Sample not found.")
-    data = (DEMO_DIR / sample["file"]).read_bytes()
-    try:
-        return await svc.create_analysis(session, cid, sample["file"], DOCX, data, lang)
     except (UnsupportedDocument, svc.AnalysisError) as e:
         raise _errors(e) from e
 

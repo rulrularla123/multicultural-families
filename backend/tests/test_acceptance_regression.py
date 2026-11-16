@@ -7,6 +7,7 @@ LLM은 conftest의 LLM_FAKE를 쓰고, 실패는 테스트 안에서 분석 함�
 import io
 import json
 import time
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -116,8 +117,14 @@ def _ids(c, headers=H):
     return [x["id"] for x in c.get("/api/v1/documents", headers=headers).json()]
 
 
+DEMO_DOC = Path(__file__).resolve().parents[1] / "data" / "demo" / "demo-extension-supplement-notice.docx"
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
 def _sample(c, headers=H, lang="ko"):
-    r = c.post("/api/v1/documents/samples/address-report", headers=headers, data={"lang": lang})
+    """시연용 가상 서류를 일반 업로드로 올려 분석 건을 만든다."""
+    r = c.post("/api/v1/documents", headers=headers, data={"lang": lang},
+               files={"file": (DEMO_DOC.name, DEMO_DOC.read_bytes(), DOCX_MIME)})
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -199,7 +206,7 @@ def test_us03_intake_request_has_masked_text_without_client_id(client, llm_calls
     buf = io.BytesIO()
     doc.save(buf)
     r = client.post("/api/v1/documents", headers=H, data={"lang": "ko"},
-                    files={"file": ("m.docx", buf.getvalue(), api.DOCX)})
+                    files={"file": ("m.docx", buf.getvalue(), DOCX_MIME)})
     assert r.status_code == 201, r.text
     assert llm_calls, "LLM 요청이 기록되지 않음"
     sent = "\n".join(llm_calls)

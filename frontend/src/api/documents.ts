@@ -1,21 +1,11 @@
 import { apiDelete, apiGet, apiPost, apiUpload } from './client'
-import type { Analysis, AnalysisListItem, AnswerIn, Lang, SampleDoc } from './types'
+import type { Analysis, AnalysisListItem, AnswerIn, Lang } from './types'
 
 export function uploadDocument(file: File, lang: Lang): Promise<Analysis> {
   const form = new FormData()
   form.append('file', file)
   form.append('lang', lang)
   return apiUpload<Analysis>('/documents', form)
-}
-
-export function listSamples(): Promise<SampleDoc[]> {
-  return apiGet<SampleDoc[]>('/documents/samples')
-}
-
-export function createFromSample(sampleId: string, lang: Lang): Promise<Analysis> {
-  const form = new FormData()
-  form.append('lang', lang)
-  return apiUpload<Analysis>(`/documents/samples/${sampleId}`, form)
 }
 
 export function listMyAnalyses(): Promise<AnalysisListItem[]> {

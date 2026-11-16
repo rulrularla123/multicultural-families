@@ -116,7 +116,7 @@ def _answer(output_type, instructions: str, messages: list[dict]):
 
 def _intake(output_type, instructions: str, messages: list[dict]):
     from app.documents.facts import parse_date
-    from app.documents.intake import FactItem, InfoItem, Option, Question
+    from app.documents.intake import FactItem, InfoItem, Option, Question, Term
 
     ko = _is_ko(instructions)
     content = _user_text(messages)
@@ -126,26 +126,31 @@ def _intake(output_type, instructions: str, messages: list[dict]):
 
     if ko:
         qs = [
-            Question(id="q1", text="지금 체류자격은 무엇인가요?", why="체류자격에 따라 연장 요건과 서류가 달라집니다.",
-                     options=opts("F-6-1 (한국인 배우자)", "F-6-2 (자녀 양육)", "F-6-3 (혼인 단절)", "잘 모름"), allow_free_text=True),
-            Question(id="q2", text="지금 배우자와 함께 살고 있나요?", why="동거 여부는 결혼이민 체류 심사에서 확인하는 사항입니다.",
-                     options=opts("예", "아니요", "잠시 떨어져 지냄"), allow_free_text=False),
-            Question(id="q3", text="연장 신청을 이미 했나요?", why="신청 전후에 따라 해야 할 일이 다릅니다.",
-                     options=opts("아직 안 함", "이미 신청함", "잘 모름"), allow_free_text=False),
+            Question(id="q1", text="지금 한국에서 어떤 상황인가요?", why="상황에 따라 연장 요건과 서류가 달라집니다.",
+                     options=opts("한국인과 결혼해 함께 살고 있어요", "이혼·사별 뒤 한국에서 아이를 키워요", "이혼했거나 따로 살아요",
+                                  "잘 모르겠어요"),
+                     allow_free_text=True, terms=[Term(term="사별", meaning="배우자가 세상을 떠난 것")]),
+            Question(id="q2", text="지금 배우자와 함께 살고 있나요?", why="함께 사는지는 체류 심사에서 확인하는 사항입니다.",
+                     options=opts("예", "아니요", "잠시 떨어져 지냄"), allow_free_text=False, terms=[]),
+            Question(id="q3", text="체류기간 연장 신청을 이미 했나요?", why="신청 전후에 따라 해야 할 일이 다릅니다.",
+                     options=opts("아직 안 함", "이미 신청함", "잘 모름"), allow_free_text=False,
+                     terms=[Term(term="체류기간 연장", meaning="한국에 머물 수 있는 기간을 늘리는 신청")]),
         ]
         label, title, summary = "체류기간 연장 안내", "체류기간 연장 안내문", f"{TAG} 체류기간 연장 안내문이라고 가정한 예시 요약입니다."
         expiry = "체류기간 만료일"
     else:
         qs = [
-            Question(id="q1", text="Tư cách lưu trú hiện tại của bạn là gì?",
-                     why="Điều kiện và hồ sơ gia hạn khác nhau theo tư cách lưu trú.",
-                     options=opts("F-6-1 (vợ/chồng người Hàn)", "F-6-2 (nuôi con)", "F-6-3 (hôn nhân chấm dứt)", "Không chắc"),
-                     allow_free_text=True),
+            Question(id="q1", text="Hiện tại hoàn cảnh của bạn ở Hàn Quốc thế nào?",
+                     why="Điều kiện và hồ sơ gia hạn khác nhau theo hoàn cảnh.",
+                     options=opts("Kết hôn với người Hàn và đang sống chung", "Nuôi con ở Hàn sau ly hôn hoặc vợ/chồng mất",
+                                  "Đã ly hôn hoặc sống riêng", "Không chắc"),
+                     allow_free_text=True, terms=[]),
             Question(id="q2", text="Bạn có đang sống cùng vợ/chồng không?",
                      why="Việc chung sống được xem xét khi gia hạn lưu trú kết hôn.",
-                     options=opts("Có", "Không", "Tạm thời sống riêng"), allow_free_text=False),
+                     options=opts("Có", "Không", "Tạm thời sống riêng"), allow_free_text=False, terms=[]),
             Question(id="q3", text="Bạn đã nộp đơn gia hạn chưa?", why="Việc cần làm khác nhau trước và sau khi nộp đơn.",
-                     options=opts("Chưa", "Đã nộp", "Không chắc"), allow_free_text=False),
+                     options=opts("Chưa", "Đã nộp", "Không chắc"), allow_free_text=False,
+                     terms=[Term(term="gia hạn lưu trú", meaning="Xin ở lại Hàn Quốc thêm thời gian")]),
         ]
         label, title = "Thông báo gia hạn lưu trú", "Thông báo gia hạn thời gian lưu trú"
         summary = f"{TAG} Tóm tắt mẫu, giả định đây là thông báo gia hạn lưu trú."

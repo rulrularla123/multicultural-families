@@ -87,12 +87,18 @@ export interface Option {
   label: string
 }
 
+export interface Term {
+  term: string
+  meaning: string
+}
+
 export interface Question {
   id: string
   text: string
   why: string
   options: Option[]
   allow_free_text: boolean
+  terms?: Term[]
 }
 
 export interface InfoItem {
@@ -229,10 +235,4 @@ export interface AnalysisListItem {
   title: string | null
   doc_type_label: string | null
   counts: { must_check: number; caution: number; general: number } | null
-}
-
-export interface SampleDoc {
-  id: string
-  title: { vi: string; ko: string }
-  filename: string
 }

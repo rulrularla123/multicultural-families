@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useApp } from '../AppContext'
 import Steps from '../components/Steps'
 import { ApiError } from '../api/client'
-import { createFromSample, listSamples, uploadDocument } from '../api/documents'
-import type { SampleDoc } from '../api/types'
+import { uploadDocument } from '../api/documents'
 import { ErrorBox } from '../components/States'
 
 const MAX_SIZE = 10 * 1024 * 1024
@@ -13,14 +12,7 @@ export default function Upload() {
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [samples, setSamples] = useState<SampleDoc[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    listSamples()
-      .then(setSamples)
-      .catch(() => setSamples([]))
-  }, [])
 
   function errorMessage(e: unknown): string {
     if (e instanceof ApiError) {
@@ -40,19 +32,6 @@ export default function Upload() {
     setBusy(true)
     try {
       const analysis = await uploadDocument(file, lang)
-      navigate({ name: 'document', id: analysis.id })
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleSample(id: string) {
-    setError(null)
-    setBusy(true)
-    try {
-      const analysis = await createFromSample(id, lang)
       navigate({ name: 'document', id: analysis.id })
     } catch (e) {
       setError(errorMessage(e))
@@ -88,10 +67,15 @@ export default function Upload() {
         tabIndex={0}
       >
         <p>{busy ? t('upload.uploading') : t('upload.dragHint')}</p>
-        <button className="btn" type="button" disabled={busy} onClick={(e) => {
-          e.stopPropagation()
-          inputRef.current?.click()
-        }}>
+        <button
+          className="btn"
+          type="button"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation()
+            inputRef.current?.click()
+          }}
+        >
           {t('upload.choose')}
         </button>
         <input
@@ -107,23 +91,6 @@ export default function Upload() {
         />
       </div>
 
-      {samples.length > 0 && (
-        <div>
-          <p className="page-desc" style={{ marginBottom: 8 }}>
-            {t('upload.or')} · {t('upload.samples')}
-          </p>
-          <div className="sample-list">
-            {samples.map((s) => (
-              <div key={s.id} className="sample-item">
-                <span>{s.title[lang]}</span>
-                <button className="btn btn--secondary" disabled={busy} onClick={() => void handleSample(s.id)}>
-                  {t('upload.choose')}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

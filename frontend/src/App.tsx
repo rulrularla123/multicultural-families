@@ -31,6 +31,11 @@ function Screen() {
   }
 }
 
+function viewKey(view: ReturnType<typeof useApp>['view']): string {
+  if (view.name === 'provision' || view.name === 'document') return `${view.name}:${view.id}`
+  return view.name
+}
+
 function loadCollapsed(): boolean {
   try {
     return localStorage.getItem('sidebar_collapsed') === '1'
@@ -59,7 +64,8 @@ function Shell() {
     <div className={`app-shell${collapsed ? ' collapsed' : ''}`}>
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`app-main${isChat ? ' app-main--chat' : ''}`}>
-        <div className="app-main__inner">
+        {/* 화면이 바뀔 때만 짧게 나타나는 효과 (key가 바뀌면 다시 재생) */}
+        <div className="app-main__inner screen-enter" key={viewKey(view)}>
           <div className="app-screen"><Screen /></div>
           <LegalNotice />
         </div>

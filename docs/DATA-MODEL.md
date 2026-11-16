@@ -86,4 +86,4 @@
 | 데이터 | 용도 |
 | --- | --- |
 | 샘플 법령 2건 (`is_sample=true`) | 테스트. 검색에서 빠진다 |
-| 샘플 서류 2건 (`backend/data/demo/`) | US-09 체험, 데모. 가상 문서이며 실제 개인정보 없음 |
+| 시연용 서류 1건 (`backend/data/demo/demo-extension-supplement-notice.docx`) | 데모 때 직접 업로드. 가상 문서이며 마스킹 시연용 가짜 번호만 들어 있다. 사이트에서 기본 제공하는 샘플은 없다 |

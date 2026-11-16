@@ -9,7 +9,7 @@
 | 항목 | 내용 |
 | --- | --- |
 | 서버 주소 | 로컬 `http://127.0.0.1:8000`. 화면은 `http://localhost:5173` |
-| 익명 ID | 화면이 처음 열릴 때 UUID를 만들어 브라우저에 저장하고, 본인 분석 건 요청에 `X-Client-Id` 헤더로 보낸다(8~64자). 헤더가 없거나 길이가 맞지 않으면 400. 샘플 목록 조회는 헤더 없이 가능하며, 채팅은 `analysis_id`를 보낼 때 헤더가 필요하다 |
+| 익명 ID | 화면이 처음 열릴 때 UUID를 만들어 브라우저에 저장하고, 본인 분석 건 요청에 `X-Client-Id` 헤더로 보낸다(8~64자). 헤더가 없거나 길이가 맞지 않으면 400. 채팅은 `analysis_id`를 보낼 때 헤더가 필요하다 |
 | 언어 | 요청 본문 또는 쿼리의 `lang`: `vi`(기본) · `ko`. 답변·분석 문구가 이 언어로 나온다. 조문 원문은 항상 한국어 |
 | 응답 형식 | JSON. 질문 스트리밍만 SSE(`text/event-stream`) |
 | 오류 형식 | `{"detail": "사용자에게 보여 줄 문구"}`. 입력 오류(422)는 `{"detail": [{"loc", "msg"}]}` |
@@ -51,12 +51,10 @@
 | `POST /api/v1/documents/{id}/checklist` JSON `{index, done}` | 다음 행동 체크 | 200 `Analysis` | `review` ↔ `done` |
 | `POST /api/v1/documents/{id}/cancel` | 취소 | 200 `Analysis` | 진행 중 → `canceled` |
 | `DELETE /api/v1/documents/{id}` | 삭제 | 204 | 건 삭제 |
-| `GET /api/v1/documents/samples` | 샘플 서류 목록 (US-09) | `[{id, title: {vi, ko}, filename}]` | 없음 |
-| `POST /api/v1/documents/samples/{sample_id}` | `lang` 폼 값(기본 `vi`)으로 샘플 분석 건 만들기 | 201 `Analysis` | → `questions` |
 
 `Analysis` 응답: `{id, created_at, updated_at, lang, filename, file_size, page_count, status, stage, intake, facts, answers, result, checklist, error, masked_count, title, doc_type_label}`. 원본 파일과 `job_id`는 돌려주지 않는다.
 
-- `intake`: `{doc_kind, doc_type_label, title, summary, basic_info, questions: [{id, text, why, options: [{id, label}], allow_free_text}]}`. 질문은 모두 답해야 하며, 선택지 중 하나를 `option_id`로 고르거나 `allow_free_text`가 참이면 `text`로 답할 수 있다
+- `intake`: `{doc_kind, doc_type_label, title, summary, basic_info, questions: [{id, text, why, options: [{id, label}], allow_free_text, terms: [{term, meaning}]}]}`. `terms`는 질문·선택지에 나온 어려운 말 0~2개의 쉬운 풀이다(이전 분석 건에는 없을 수 있음). 질문은 모두 답해야 하며, 선택지 중 하나를 `option_id`로 고르거나 `allow_free_text`가 참이면 `text`로 답할 수 있다
 - `result`: `{summary, summary_simple, situation_note, clauses: [{id, title, text, pages, category(must_check·caution·general), explanation_simple, explanation_detail, highlights, citations}], cautions: [{title, kind(risk·missing·deadline·ambiguity·outdated), explanation_simple, explanation_detail, clause_ids, citations}], next_actions: [{id, text, clause_id, due}], open_questions, confidence, needs_expert}`
 - `result`에는 추가로 `title`, `doc_type_label`, `doc_kind`, `basic_info`, `counts`, `notice`, `not_immigration`, `disclaimer`, `as_of`, `law_sources`가 포함된다. `open_questions`는 `{id, question, why}` 목록이며, 조항의 `id`와 다음 행동의 `clause_id`가 연결된다.
 - `facts`는 현재 상세 응답에 포함되지만 별도 수정 API는 없다. UI 기능 추가를 이번 문서 변경에서 확정하지 않는다.

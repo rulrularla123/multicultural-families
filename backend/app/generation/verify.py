@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,8 @@ class ProvisionInfo:
     jo_id: str | None
     jo_full_text: str
     valid: bool
+    version_status: str | None = None          # 소속 법령 판의 최신 판 확인 결과
+    version_checked_at: datetime | None = None
 
 
 @dataclass
@@ -81,7 +83,8 @@ LOOKUP_SQL = text(
            coalesce(dp.full_text_ko, p.full_text_ko) AS jo_full_text,
            ((p.effective_from IS NULL OR p.effective_from <= :as_of)
              AND (p.effective_to IS NULL OR p.effective_to > :as_of)
-             AND d.status = 'in_force') AS valid
+             AND d.status = 'in_force') AS valid,
+           d.version_status, d.version_checked_at
     FROM provisions p
     JOIN legal_documents d ON d.id = p.document_id
     LEFT JOIN provisions dp ON dp.id = p.jo_id
@@ -96,5 +99,6 @@ async def lookup(session: AsyncSession, ids: list[str], as_of: date) -> dict[str
         return {}
     norm = {i: normalize_provision_id(i) for i in ids}
     rows = (await session.execute(LOOKUP_SQL, {"ids": list(set(norm.values())), "as_of": as_of})).all()
-    found = {r.id: ProvisionInfo(r.id, r.full_text_ko, r.jo_id, r.jo_full_text, bool(r.valid)) for r in rows}
+    found = {r.id: ProvisionInfo(r.id, r.full_text_ko, r.jo_id, r.jo_full_text, bool(r.valid),
+                               r.version_status, r.version_checked_at) for r in rows}
     return {i: found[n] for i, n in norm.items() if n in found}

@@ -16,6 +16,7 @@ from app import llm
 from app.common.identity_patterns import mask
 from app.core.config import get_settings
 from app.core.lang import DEFAULT_LANG, Lang, t
+from app.core.law_version import version_warning
 from app.generation.answer import LegalAnswer, generate_answer
 from app.generation.citations import align_citations, alignment_errors
 from app.generation.numbers import check_numbers
@@ -191,6 +192,7 @@ async def _answer_stream(
                 quote_translation=c.quote_translation,
                 verified=chk.ok,
                 verify_error=chk.reason,
+                version_warning=_version_warning(infos, chk.corrected_id or c.provision_id, c.provision_id),
             )
             for n, (c, chk) in enumerate(pairs)
         ],
@@ -213,8 +215,25 @@ async def _answer_stream(
         number_checks=[NumberCheckOut(**c.as_dict()) for c in number_checks],
         analysis_id=analysis.id if analysis else None,
     )
+    _apply_version_notice(payload)
     await _finish(session, req, analysis, payload, usage)
     yield {"event": "answer", "data": payload.model_dump(mode="json")}
+
+
+def _version_warning(infos: dict[str, ProvisionInfo], *ids: str) -> str | None:
+    info = next((infos[i] for i in ids if i in infos), None)
+    return version_warning(info.version_status, info.version_checked_at) if info else None
+
+
+def _apply_version_notice(payload: AnswerPayload) -> None:
+    """근거 법령보다 새 판이 시행 중이면 상담 안내를 붙이고, 확인을 못 했으면 공식 원문 대조를 안내한다."""
+    warnings = {c.version_warning for c in payload.citations}
+    key = "law_outdated" if "outdated" in warnings else "law_unchecked" if "unchecked" in warnings else None
+    if key is None:
+        return
+    if key == "law_outdated":
+        payload.needs_expert = True
+    payload.notice = " ".join(x for x in (payload.notice, t(key, payload.lang)) if x)
 
 
 async def _finish(

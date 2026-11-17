@@ -19,6 +19,9 @@ LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
 - `LLM_FAKE=true`: OpenAI 없이 고정 응답으로 화면 흐름만 확인한다. 답변에 `[DEV FAKE RESPONSE]`가 붙는다.
 - 실제 답변: 환경변수 `OPENAI_API_KEY`를 넣고 `LLM_FAKE`를 끈 뒤 `python -m ingest summarize --lang vi`로 요약·임베딩을 만든다.
 - 법령 원문 새로 받기: `python -m ingest fetch` (legalize-kr, 오늘 시행 중인 판을 고른다)
+- 최신 판 확인: `python -m ingest versions` — 적재한 판(법령MST)이 지금 시행 중인 판인지 확인해 DB에 저장한다. 결과는 조문 화면·답변 근거·`/health`에 보인다. `LAW_GO_KR_OC`(국가법령정보센터 Open API 인증값)가 있으면 법제처 공식 현행 판과, 없으면 legalize-kr과 비교한다. `--strict`는 새 판이 시행 중이거나 확인하지 못한 법령이 있으면 종료 코드 1을 낸다.
+- 최신 판 동기화: `python -m ingest sync` — 위 확인을 한 뒤 새 판이 시행 중인 법령만 legalize-kr에서 받아 재적재하고, 그 법령의 쉬운 요약(원래 있던 언어만)과 임베딩을 새로 만든 다음 다시 확인한다. 바뀌지 않은 법령의 청크·임베딩은 건드리지 않는다. `--dry-run`은 확인만 한다. `LLM_FAKE=true`면 재적재까지만 하고 요약·임베딩은 대기(`needs_reindex`)로 남겨, 실제 키로 다음에 실행할 때 채운다.
+- 자동 동기화: 서버(uvicorn)가 켜져 있으면 `LAW_SYNC_INTERVAL_HOURS`(기본 24)시간마다 위 `sync`를 스스로 실행한다. 10분마다 때가 됐는지 보고, 마지막 확인이 주기보다 오래됐을 때만 돈다(서버를 다시 켜도 바로 다시 돌지 않음). 요약·임베딩 대기 법령이 있고 실제 LLM이 켜져 있으면 주기와 관계없이 채운다. 실패하면 1시간 뒤 다시 시도한다. 끄려면 `LAW_SYNC_INTERVAL_HOURS=0`. 마지막 결과는 `/health`의 `law_sync`에 보인다. 자동 동기화가 `data/laws` 파일을 새 판으로 덮어쓸 수 있으므로 `git status`에 법령 파일 변경이 보이면 새 판이 들어온 것이다.
 - 시연용 서류: `data/demo/*.docx` (가상 안내문). 다시 만들기: `python scripts/make_demo_docs.py`
 
 ### 프론트엔드

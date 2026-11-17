@@ -5,6 +5,8 @@ import pytest
 
 # 테스트는 OpenAI를 부르지 않는다 (설정을 처음 읽기 전에 정해야 한다)
 os.environ["LLM_FAKE"] = "true"
+# 테스트 중에 법령 자동 동기화(네트워크·재적재)가 돌지 않게 한다
+os.environ["LAW_SYNC_INTERVAL_HOURS"] = "0"
 
 ROOT = Path(__file__).resolve().parents[1]
 

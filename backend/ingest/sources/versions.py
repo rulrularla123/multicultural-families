@@ -42,6 +42,14 @@ def article_url(title_ko: str, jo_number: str | None) -> str:
     return f"{base}/제{main}조" + (f"의{branch}" if branch else "")
 
 
+def family_of(document_id: str, doc_type: str) -> tuple[str, str] | None:
+    """문서 ID → (legalize-kr 법령 폴더, 법률|시행령|시행규칙). '출입국관리법시행령' → ('출입국관리법', '시행령')"""
+    kind = KIND_BY_TYPE.get(doc_type)
+    if kind is None:
+        return None
+    return (document_id if kind == "법률" else document_id.removesuffix(kind)), kind
+
+
 @dataclass
 class Version:
     mst: str
@@ -154,10 +162,10 @@ def check_versions(docs: list, today: date) -> list[VersionCheck]:
     out: list[VersionCheck] = []
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         for d in docs:
-            kind = KIND_BY_TYPE.get(d.doc_type)
-            if kind is None:
+            fk = family_of(d.id, d.doc_type)
+            if fk is None:
                 continue
-            family = d.id.removesuffix(kind) if kind != "법률" else d.id
+            family, kind = fk
             mirror = check_legalize_kr(client, family, kind, d.id, d.law_mst, today)
             if oc:
                 official = check_law_go_kr(client, oc, d.title_ko, d.id, d.law_mst, today)

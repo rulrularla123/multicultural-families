@@ -6,6 +6,7 @@ US-07(현행 여부 계산·적재), US-02(근거 조문 원문 확인), US-01(�
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+import pytest
 
 from app.core.law_version import version_warning
 from ingest.loader import load_file
@@ -105,3 +106,124 @@ def test_version_warning_rules():
     assert version_warning("current", now - timedelta(days=30), now) == "unchecked"
     assert version_warning("unknown", now, now) == "unchecked"
     assert version_warning("current", None, now) == "unchecked"
+
+
+# ---------------------------------------------------------------------------
+# 동기화: 바뀐 법령만 다시 받아 요약·임베딩 (DB 필요)
+# ---------------------------------------------------------------------------
+
+LAW_V2 = """---
+제목: 버전시험법
+법령MST: '200'
+법령ID: '999'
+법령구분: 법률
+공포일자: 2026-11-01
+공포번호: '2'
+시행일자: 2026-11-10
+상태: 시행
+출처: https://www.law.go.kr/법령/버전시험법
+---
+
+# 버전시험법
+
+##### 제1조 (목적)
+이 법은 판 동기화를 시험한다. <개정 2026.11.1>
+
+##### 제2조 (기간)
+신고는 30일 이내에 한다.
+"""
+
+
+@pytest.mark.db
+def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
+    """US-07: 새 판이 시행 중인 법령만 다시 적재하고, 그 법령의 요약·임베딩만 새로 만든다."""
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.core.config import get_settings
+    from ingest import pipeline
+    from ingest.loader import discover
+    from ingest.sources import legalize_kr
+    from ingest.sources.versions import VersionCheck
+
+    doc_id = "버전시험법"
+    root = tmp_path / "laws"
+    (root / doc_id).mkdir(parents=True)
+    (root / doc_id / "법률.md").write_text(LAW_V2.replace("'200'", "'100'").replace("30일", "14일"), encoding="utf-8")
+
+    other_before: dict = {}
+    calls = {"fetch": [], "summaries": 0, "embedded": 0}
+
+    def fake_fetch(families, out, today=None):
+        calls["fetch"].append(list(families))
+        (out / doc_id / "법률.md").write_text(LAW_V2, encoding="utf-8")
+        return []
+
+    async def fake_check(session, today):
+        mst = (await session.execute(text("SELECT law_mst FROM legal_documents WHERE id = :i"), {"i": doc_id}))
+        status = "current" if mst.scalar_one() == "200" else "outdated"
+        return [VersionCheck(doc_id, status, "legalize-kr", latest_mst="200")]
+
+    async def fake_complete(instructions, prompt):
+        calls["summaries"] += 1
+        return "요약"
+
+    async def fake_embed(texts):
+        calls["embedded"] += len(texts)
+        return [[0.0] * 1536 for _ in texts]
+
+    monkeypatch.setattr(legalize_kr, "fetch", fake_fetch)
+    monkeypatch.setattr(pipeline, "check_versions", fake_check)
+    monkeypatch.setattr(pipeline, "complete", fake_complete)
+    monkeypatch.setattr(pipeline, "embed_texts", fake_embed)
+    monkeypatch.setattr(get_settings(), "llm_fake", False)
+
+    async def run():
+        engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
+        Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        try:
+            async with Session() as s:
+                await pipeline.load_documents(s, discover(root))
+                # 옛 판: 요약(vi)과 임베딩이 있는 상태
+                await s.execute(text(
+                    "INSERT INTO chunks (provision_id, jo_id, document_id, kind, lang, content, domains) "
+                    "SELECT id, id, document_id, 'summary', 'vi', 'old', '{}' FROM provisions "
+                    "WHERE document_id = :d AND level = 'jo'"), {"d": doc_id})
+                await s.execute(text("UPDATE chunks SET embedding = array_fill(0.5::float4, ARRAY[1536])::vector "
+                                     "WHERE document_id = :d"), {"d": doc_id})
+                await s.commit()
+                other_before.update(dict((await s.execute(text(
+                    "SELECT document_id, count(embedding) FROM chunks WHERE document_id <> :d GROUP BY 1"
+                ), {"d": doc_id})).all()))
+
+                report = await pipeline.sync_versions(s, root, TODAY)
+
+                text_ = (await s.execute(text(
+                    "SELECT full_text_ko FROM provisions WHERE id = :i"), {"i": f"{doc_id}:J2"})).scalar_one()
+                emb = (await s.execute(text(
+                    "SELECT count(*), count(embedding) FROM chunks WHERE document_id = :d"), {"d": doc_id})).one()
+                summaries = (await s.execute(text(
+                    "SELECT content FROM chunks WHERE document_id = :d AND kind = 'summary'"), {"d": doc_id}
+                )).scalars().all()
+                other_after = dict((await s.execute(text(
+                    "SELECT document_id, count(embedding) FROM chunks WHERE document_id <> :d GROUP BY 1"
+                ), {"d": doc_id})).all())
+                return report, text_, emb, summaries, other_after
+        finally:
+            async with Session() as s:
+                await s.execute(text("DELETE FROM legal_documents WHERE id = :d"), {"d": doc_id})
+                await s.commit()
+                await pipeline.rebuild_relations(s)
+            await engine.dispose()
+
+    report, text_, emb, summaries, other_after = asyncio.run(run())
+    assert calls["fetch"] == [[doc_id]]
+    assert report["changed"] == [doc_id] and report["reloaded"] == [doc_id]
+    assert report["still_outdated"] == []
+    assert "30일" in text_                                  # 새 판 원문으로 바뀜
+    assert emb[0] == emb[1] and calls["embedded"] == emb[0]  # 이 법령 청크만 모두 새로 임베딩
+    assert summaries and all(s.endswith("요약") for s in summaries)
+    assert other_after == other_before                      # 다른 법령은 건드리지 않음

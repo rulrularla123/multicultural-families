@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.api.v1 import documents as api
 from app.core.db import get_session
 from app.documents.extract import DOCX
+from tests.document_payload import document_payload
 
 CID = "test-client-0001"
 OTHER = "test-client-0002"
@@ -30,9 +31,9 @@ def test_client_id_required():
     assert c.get("/api/v1/documents", headers={"X-Client-Id": "short"}).status_code == 400
 
 
-def test_unsupported_file_rejected_before_db():
+def test_raw_multipart_rejected_before_db():
     r = bare_client().post("/api/v1/documents", headers={"X-Client-Id": CID},
-                           files={"file": ("a.txt", b"hello" * 20, "text/plain")}, data={"lang": "ko"})
+                           files={"file": ("a.docx", b"original file", DOCX)}, data={"lang": "ko"})
     assert r.status_code == 415
 
 
@@ -61,8 +62,7 @@ def _wait(c, aid, headers, until, timeout=30):
 def test_full_document_flow(client, demo_dir):
     h = {"X-Client-Id": CID}
     data = (demo_dir / "demo-extension-supplement-notice.docx").read_bytes()
-    r = client.post("/api/v1/documents", headers=h, data={"lang": "vi"},
-                    files={"file": ("guide.docx", data, DOCX)})
+    r = client.post("/api/v1/documents", headers=h, json=document_payload("guide.docx", DOCX, data, "vi"))
     assert r.status_code == 201, r.text
     a = r.json()
     assert a["status"] == "questions" and a["intake"]["questions"]
@@ -101,8 +101,7 @@ def test_full_document_flow(client, demo_dir):
 def test_cancel_during_analysis_discards_late_result(client, demo_dir):
     h = {"X-Client-Id": CID}
     data = (demo_dir / "demo-extension-supplement-notice.docx").read_bytes()
-    a = client.post("/api/v1/documents", headers=h, data={"lang": "ko"},
-                    files={"file": ("demo.docx", data, DOCX)}).json()
+    a = client.post("/api/v1/documents", headers=h, json=document_payload("demo.docx", DOCX, data, "ko")).json()
     answers = [{"question_id": q["id"], "option_id": q["options"][0]["id"]} for q in a["intake"]["questions"]]
     client.post(f"/api/v1/documents/{a['id']}/answers", headers=h, json={"answers": answers})
     r = client.post(f"/api/v1/documents/{a['id']}/cancel", headers=h)
@@ -114,17 +113,11 @@ def test_cancel_during_analysis_discards_late_result(client, demo_dir):
 
 @pytest.mark.db
 def test_identifiers_are_masked(client):
-    import io
-
-    from docx import Document
-
-    doc = Document()
-    doc.add_paragraph("체류기간 연장 신청 안내입니다. 외국인등록번호 900101-5123456, 연락처 010-1234-5678로 연락 바랍니다.")
-    buf = io.BytesIO()
-    doc.save(buf)
     h = {"X-Client-Id": CID}
-    a = client.post("/api/v1/documents", headers=h, data={"lang": "ko"},
-                    files={"file": ("m.docx", buf.getvalue(), DOCX)}).json()
+    text = "체류기간 연장 신청 안내입니다. 외국인등록번호 [등록번호 가림], 연락처 010-1234-5678로 연락 바랍니다."
+    a = client.post("/api/v1/documents", headers=h, json={
+        "format": "docx", "file_size": 1000, "page_count": 1, "lang": "ko", "text": text,
+    }).json()
     assert a["masked_count"] == 2
     assert "5123456" not in str(a) and "5678" not in str(a)
 

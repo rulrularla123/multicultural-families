@@ -2,7 +2,7 @@
 
 상태: uploaded → questions → analyzing → review ↔ done, analyzing → failed → analyzing, 진행 중 → canceled.
 - 분석 건은 브라우저 익명 ID(client_id)로 구분한다. 다른 ID의 건은 없는 건처럼 다룬다(404).
-- 업로드 직후 추출 텍스트의 식별정보를 마스킹해서 저장한다. 원본 파일은 저장하지 않는다.
+- 브라우저가 보낸 텍스트를 서버에서도 마스킹해 저장한다. 원본 파일은 받지 않는다.
 - 분석은 job_id를 붙여 돌리고, 결과를 저장할 때 job_id와 상태가 그대로일 때만 저장한다
   (취소·재시도 뒤 늦게 온 결과는 버린다).
 """
@@ -16,13 +16,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import llm
-from app.common.identity_patterns import mask
+from app.common.identity_patterns import PLACEHOLDER, mask
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.lang import Lang, t, today_kr
 from app.documents import facts as fx
 from app.documents.analyze import DocumentAnalysis, run_analysis
-from app.documents.extract import extract_text
 from app.documents.intake import Intake, run_intake
 from app.documents.segment import Segment, segment_document
 from app.generation.answer import Citation
@@ -123,10 +122,11 @@ async def delete_analysis(session: AsyncSession, client_id: str, analysis_id: st
 
 
 async def create_analysis(
-    session: AsyncSession, client_id: str, filename: str, mime: str | None, data: bytes, lang: Lang
+    session: AsyncSession, client_id: str, filename: str, mime: str, file_size: int, page_count: int,
+    document_text: str, lang: Lang,
 ) -> dict:
-    extracted = extract_text(filename, mime, data, lang)
-    masked, masked_count = mask(extracted.text)
+    masked, _ = mask(document_text)
+    masked_count = sum(masked.count(marker) for marker in PLACEHOLDER.values())
     analysis_id = uuid.uuid4()
     await session.execute(
         text(
@@ -136,8 +136,8 @@ async def create_analysis(
             VALUES (:id, :cid, :lang, :filename, :mime, :size, :pages, :text, :masked, 'uploaded', 'extracted')
             """
         ),
-        {"id": analysis_id, "cid": client_id, "lang": lang, "filename": filename, "mime": mime, "size": len(data),
-         "pages": extracted.page_count, "text": masked, "masked": masked_count},
+        {"id": analysis_id, "cid": client_id, "lang": lang, "filename": filename, "mime": mime, "size": file_size,
+         "pages": page_count, "text": masked, "masked": masked_count},
     )
     await session.commit()
 

@@ -116,7 +116,7 @@ const ko: Dict = {
 
   'upload.title': '서류 분석하기',
   'upload.desc': '받은 안내문·통지서(PDF, DOCX, 최대 10MB)를 올리면 꼭 확인할 점과 다음 행동을 정리해 드립니다.',
-  'upload.privacyNotice': '외국인등록번호·여권번호·전화번호 같은 식별정보는 자동으로 가려지며 저장하지 않습니다. 원본 파일도 저장하지 않습니다.',
+  'upload.privacyNotice': '이 기기에서 등록번호·여권번호·휴대전화번호를 가린 뒤 추출한 글자만 전송합니다. 이름과 주소는 자동으로 가리지 않으니 시연용 가상 서류를 사용해 주세요.',
   'upload.choose': '파일 선택',
   'upload.dragHint': '파일을 여기로 끌어다 놓거나 눌러서 선택하세요',
   'upload.uploading': '올리는 중…',
@@ -302,7 +302,7 @@ const vi: Dict = {
   'upload.title': 'Phân tích giấy tờ',
   'upload.desc': 'Tải lên thông báo bạn nhận được (PDF, DOCX, tối đa 10MB), chúng tôi sẽ chỉ ra điều cần chú ý và việc cần làm.',
   'upload.privacyNotice':
-    'Số đăng ký người nước ngoài, số hộ chiếu, số điện thoại sẽ được tự động che và không lưu lại. File gốc cũng không được lưu.',
+    'Thiết bị này che số đăng ký, số hộ chiếu và số điện thoại di động trước khi gửi phần văn bản trích xuất. Hãy dùng giấy tờ giả lập vì tên và địa chỉ không tự động được che.',
   'upload.choose': 'Chọn file',
   'upload.dragHint': 'Kéo thả file vào đây hoặc nhấn để chọn',
   'upload.uploading': 'Đang tải lên…',

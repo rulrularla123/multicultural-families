@@ -34,7 +34,6 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           <span className="brand-badge">{t('brand.badge')}</span>
           <span className="sidebar__brand-text">
             <strong>{t('brand.title')}</strong>
-            <small>{t('brand.subtitle')}</small>
           </span>
         </button>
         <button

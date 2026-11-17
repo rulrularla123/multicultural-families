@@ -44,7 +44,6 @@ export default function Upload() {
     <div className="stack">
       <Steps current={1} />
       <h1 className="page-title">{t('upload.title')}</h1>
-      <p className="page-desc">{t('upload.desc')}</p>
       <p className="upload-notice">{t('upload.privacyNotice')}</p>
 
       {error && <ErrorBox message={error} />}
@@ -67,6 +66,7 @@ export default function Upload() {
         tabIndex={0}
       >
         <p>{busy ? t('upload.uploading') : t('upload.dragHint')}</p>
+        <small className="upload-dropzone__meta">{t('dash.cta.formats')}</small>
         <button
           className="btn"
           type="button"

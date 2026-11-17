@@ -316,6 +316,26 @@ export default function Home() {
             <dd>{health ? health.provisions.toLocaleString() : '—'}</dd>
           </div>
           <div>
+            <dt>{t('dash.laws.version')}</dt>
+            <dd>
+              {health && health.laws_outdated !== undefined ? (
+                health.laws_outdated > 0 ? (
+                  <span className="badge badge--caution">
+                    {t('dash.laws.version.outdated').replace('{n}', String(health.laws_outdated))}
+                  </span>
+                ) : health.laws_unchecked || !health.laws_checked_at ? (
+                  <span className="badge badge--caution">{t('dash.laws.version.unchecked')}</span>
+                ) : (
+                  <span className="badge badge--general">
+                    {t('dash.laws.version.ok')} · {fmtDate(health.laws_checked_at)}
+                  </span>
+                )
+              ) : (
+                '—'
+              )}
+            </dd>
+          </div>
+          <div>
             <dt>{t('dash.laws.mode')}</dt>
             <dd>
               {health ? (

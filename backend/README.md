@@ -19,6 +19,7 @@ LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
 - `LLM_FAKE=true`: OpenAI 없이 고정 응답으로 화면 흐름만 확인한다. 답변에 `[DEV FAKE RESPONSE]`가 붙는다.
 - 실제 답변: 환경변수 `OPENAI_API_KEY`를 넣고 `LLM_FAKE`를 끈 뒤 `python -m ingest summarize --lang vi`로 요약·임베딩을 만든다.
 - 법령 원문 새로 받기: `python -m ingest fetch` (legalize-kr, 오늘 시행 중인 판을 고른다)
+- 최신 판 확인: `python -m ingest versions` — 적재한 판(법령MST)이 지금 시행 중인 판인지 확인해 DB에 저장한다. 결과는 조문 화면·답변 근거·`/health`에 보인다. `LAW_GO_KR_OC`(국가법령정보센터 Open API 인증값)가 있으면 법제처 공식 현행 판과, 없으면 legalize-kr과 비교한다. `--strict`는 새 판이 시행 중이거나 확인하지 못한 법령이 있으면 종료 코드 1을 낸다. 새 판이 나왔으면 `fetch` → `load` → `versions` 순서로 다시 돌린다.
 - 시연용 서류: `data/demo/*.docx` (가상 안내문). 다시 만들기: `python scripts/make_demo_docs.py`
 
 ### 프론트엔드

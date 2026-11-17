@@ -62,6 +62,12 @@ async def load_documents(session: AsyncSession, docs: list[RawDocument], force: 
                 raw_hash=raw.raw_hash,
                 is_sample=m.get("is_sample", False),
                 preamble=parsed.preamble,
+                law_mst=m.get("law_mst"),
+                law_id=m.get("law_id"),
+                promulgation_no=m.get("promulgation_no"),
+                loaded_at=datetime.now(UTC),
+                # 새 판을 적재하면 이전 확인 결과는 맞지 않으므로 다시 확인할 때까지 unknown
+                version_status="unknown",
                 **review,
             )
         )
@@ -302,3 +308,25 @@ async def set_review(
 async def list_reviews(session: AsyncSession) -> list[LegalDocument]:
     q = select(LegalDocument).where(~LegalDocument.is_sample).order_by(LegalDocument.reviewed, LegalDocument.id)
     return list((await session.execute(q)).scalars().all())
+
+
+async def check_versions(session: AsyncSession, today) -> list:
+    """적재한 법령마다 최신 판인지 확인하고 결과를 저장한다. 네트워크 오류는 unknown으로 남기고 계속한다."""
+    from ingest.sources.versions import check_versions as run_checks
+
+    docs = list((await session.execute(
+        select(LegalDocument).where(~LegalDocument.is_sample).order_by(LegalDocument.id)
+    )).scalars().all())
+    results = await asyncio.to_thread(run_checks, docs, today)
+    now = datetime.now(UTC)
+    by_id = {d.id: d for d in docs}
+    for r in results:
+        d = by_id[r.document_id]
+        d.version_status = r.status
+        d.version_checked_at = now
+        d.version_checked_source = r.source
+        d.latest_mst = r.latest_mst
+        d.upcoming_mst = r.upcoming_mst
+        d.upcoming_effective_from = r.upcoming_effective_from
+    await session.commit()
+    return results

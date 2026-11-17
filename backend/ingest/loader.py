@@ -86,6 +86,9 @@ def load_file(path: Path) -> RawDocument:
         "effective_from": effective,
         "status": status,
         "source_url": front.get("출처") or None,
+        "law_mst": str(front.get("법령MST") or "") or None,
+        "law_id": str(front.get("법령ID") or "") or None,
+        "promulgation_no": str(front.get("공포번호") or "") or None,
         "guides": guides,
         "is_sample": path.parent.name.startswith("_"),
     }

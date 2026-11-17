@@ -17,6 +17,11 @@
 | | `reviewed` BOOL, `reviewed_by` TEXT NULL, `reviewed_at` TIMESTAMPTZ NULL, `review_note` TEXT NULL | 법령 데이터 자체의 사람 검토 기록. 이용자 답변 승인 단계가 아님 | F-08 |
 | | `source_url` TEXT NULL, `raw_hash` TEXT NULL | 원문 출처, 원문 해시(같은 내용 재적재 감지) | F-08 |
 | | `is_sample` BOOL | 테스트용 샘플 법령. 검색에서 뺀다 | F-08 |
+| | `law_mst` TEXT NULL, `law_id` TEXT NULL, `promulgation_no` TEXT NULL | 적재한 판의 법령일련번호(판마다 다름), 법령ID(판이 바뀌어도 같음), 공포번호. legalize-kr 머리말에서 읽는다 (0002) | F-02, F-08 |
+| | `loaded_at` TIMESTAMPTZ NULL | 이 판을 DB에 적재한 시각 | F-08 |
+| | `version_status` TEXT | 최신 판 확인 결과 `current`(최신) · `upcoming`(최신, 시행 예정 개정 있음) · `outdated`(새 판이 시행 중) · `unknown`(확인 못 함). 새 판을 적재하면 `unknown`으로 돌아간다 | F-01, F-02, F-08 |
+| | `version_checked_at` TIMESTAMPTZ NULL, `version_checked_source` TEXT NULL | 마지막 확인 시각, 비교한 곳(`law.go.kr` · `legalize-kr`) | F-08 |
+| | `latest_mst` TEXT NULL, `upcoming_mst` TEXT NULL, `upcoming_effective_from` DATE NULL | 확인 당시 시행 중인 판, 공포됐지만 시행 전인 판과 그 시행일 | F-02 |
 | DocumentRelation (`document_relations`) | `src_doc`, `dst_doc`, `rel` (PK) | 법령 사이 관계: `GUIDES`(시행령·시행규칙 → 상위 법률), `AMENDS`, `REPLACES` | F-02 |
 | Provision (`provisions`) | `id` TEXT PK | 조문 노드 ID. 예: `출입국관리법:J25:H1` (제25조 제1항) | F-01, F-02 |
 | | `document_id` FK, `parent_id` TEXT NULL, `jo_id` TEXT | 소속 법령, 상위 노드, 소속 조 | F-02 |

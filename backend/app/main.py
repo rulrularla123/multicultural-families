@@ -29,6 +29,12 @@ async def health():
         docs = (await s.execute(text("SELECT count(*) FROM legal_documents"))).scalar_one()
         provs = (await s.execute(text("SELECT count(*) FROM provisions"))).scalar_one()
         chunks = (await s.execute(text("SELECT count(*), count(embedding) FROM chunks"))).one()
+        laws = (await s.execute(text(
+            "SELECT count(*) FILTER (WHERE version_status = 'outdated'), "
+            "count(*) FILTER (WHERE version_status = 'unknown' OR version_checked_at IS NULL "
+            "  OR version_checked_at < now() - make_interval(days => :days)), min(version_checked_at) "
+            "FROM legal_documents WHERE NOT is_sample"
+        ), {"days": settings.law_version_max_age_days})).one()
     return {
         "status": "ok",
         "documents": docs,
@@ -36,4 +42,9 @@ async def health():
         "chunks": chunks[0],
         "embedded": chunks[1],
         "llm_fake": settings.llm_fake,
+        # 법령 판 확인 (python -m ingest versions). 새 판이 시행 중인 법령 수, 확인 못 했거나 확인이 오래된 법령 수,
+        # 가장 오래된 확인 시각
+        "laws_outdated": laws[0],
+        "laws_unchecked": laws[1],
+        "laws_checked_at": laws[2],
     }

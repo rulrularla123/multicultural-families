@@ -74,4 +74,4 @@
 
 | 요청 | 응답 |
 | --- | --- |
-| `GET /health` | `{status, documents, provisions, chunks, embedded, llm_fake, laws_outdated, laws_unchecked, laws_checked_at}`. `laws_outdated`는 새 판이 시행 중인 법령 수, `laws_unchecked`는 확인 못 했거나 확인이 오래된 법령 수, `laws_checked_at`은 가장 오래된 확인 시각 |
+| `GET /health` | `{status, documents, provisions, chunks, embedded, llm_fake, laws_outdated, laws_unchecked, laws_checked_at}`. `laws_outdated`는 새 판이 시행 중인 법령 수, `laws_unchecked`는 확인 못 했거나 확인이 오래된 법령 수, `laws_checked_at`은 가장 오래된 확인 시각. `law_sync`는 자동 동기화 `{enabled, interval_hours, last_run_at, changed, reloaded, still_outdated, embedded, reindexed, pending_reindex, llm_skipped, error}`(서버 프로세스별, 재시작하면 비워짐) |

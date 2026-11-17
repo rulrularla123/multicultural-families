@@ -45,6 +45,8 @@ class LegalDocument(Base):
     latest_mst: Mapped[str | None] = mapped_column(Text)
     upcoming_mst: Mapped[str | None] = mapped_column(Text)
     upcoming_effective_from: Mapped[date | None] = mapped_column(Date)
+    # 동기화로 새 판을 적재했지만 요약·임베딩을 아직 못 만든 법령. 다음 동기화에서 채운다
+    needs_reindex: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class DocumentRelation(Base):

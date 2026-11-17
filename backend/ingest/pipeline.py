@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, insert, select, text, true
+from sqlalchemy import delete, insert, select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import vector_literal
@@ -343,47 +343,62 @@ async def sync_versions(session: AsyncSession, root, today, dry_run: bool = Fals
     """공식 사이트(또는 legalize-kr)의 현행 판과 DB에 적재·임베딩된 판을 비교해, 바뀐 법령만 다시 받는다.
 
     새 판이 시행 중(outdated)인 법령 → legalize-kr에서 받기 → 재적재(조문·청크) → 관계 재구성
-    → 지워진 쉬운 요약·임베딩 다시 만들기 → 최신 판 다시 확인. 바뀌지 않은 법령은 건드리지 않는다.
+    → 그 법령의 쉬운 요약·임베딩 다시 만들기 → 최신 판 다시 확인. 바뀌지 않은 법령은 건드리지 않는다.
+    재적재했지만 요약·임베딩을 끝내지 못한 법령(LLM_FAKE, OpenAI 오류)은 `needs_reindex`로 남겨 다음 실행에서 채운다.
     """
     from app.core.config import get_settings
     from ingest.loader import discover
     from ingest.sources.legalize_kr import fetch
     from ingest.sources.versions import family_of
 
-    report: dict = {"checked": [], "changed": [], "reloaded": [], "still_outdated": [], "summarized": 0,
-                    "embedded": 0, "llm_skipped": False}
+    report: dict = {"checked": [], "changed": [], "reloaded": [], "reindexed": [], "pending_reindex": [],
+                    "still_outdated": [], "summarized": 0, "embedded": 0, "llm_skipped": False}
     checks = await check_versions(session, today)
     report["checked"] = checks
     types = dict((await session.execute(select(LegalDocument.id, LegalDocument.doc_type))).all())
     changed = [c.document_id for c in checks if c.status == "outdated"]
     report["changed"] = changed
-    if not changed or dry_run:
+    if dry_run:
         return report
 
-    families = sorted({family_of(d, types[d])[0] for d in changed if family_of(d, types[d])})
-    await asyncio.to_thread(fetch, families, root, today)
+    if changed:
+        families = sorted({family_of(d, types[d])[0] for d in changed if family_of(d, types[d])})
+        await asyncio.to_thread(fetch, families, root, today)
+        before = dict((await session.execute(select(LegalDocument.id, LegalDocument.raw_hash))).all())
+        docs = [d for d in discover(root) if d.id in set(changed)]
+        await load_documents(session, docs)
+        report["reloaded"] = [d.id for d in docs if before.get(d.id) != d.raw_hash]
+        if report["reloaded"]:
+            await session.execute(
+                update(LegalDocument).where(LegalDocument.id.in_(report["reloaded"])).values(needs_reindex=True)
+            )
+            await session.commit()
+            await rebuild_relations(session)
 
-    # 재적재하면 그 법령의 요약 청크도 지워지므로, 그 법령에 원래 있던 요약 언어만 다시 만든다
-    summary_langs = list((await session.execute(
-        select(Chunk.lang).where(Chunk.kind == "summary", Chunk.document_id.in_(changed)).distinct()
+    # 재적재한 법령(이번 또는 이전 실행)의 청크만 요약·임베딩한다. 다른 법령은 건드리지 않는다
+    pending = list((await session.execute(
+        select(LegalDocument.id).where(LegalDocument.needs_reindex).order_by(LegalDocument.id)
     )).scalars().all())
-    before = dict((await session.execute(select(LegalDocument.id, LegalDocument.raw_hash))).all())
-    docs = [d for d in discover(root) if d.id in set(changed)]
-    await load_documents(session, docs)
-    report["reloaded"] = [d.id for d in docs if before.get(d.id) != d.raw_hash]
-    if report["reloaded"]:
-        await rebuild_relations(session)
-        if get_settings().llm_fake:
-            report["llm_skipped"] = True
-            log.warning("LLM_FAKE=true라 요약·임베딩을 건너뜁니다. LLM_FAKE를 끄고 `python -m ingest sync`나 "
-                        "`summarize`·`embed`를 다시 실행하세요.")
-        else:
-            # 재적재한 법령의 청크만 요약·임베딩한다 (다른 법령은 건드리지 않는다)
-            for lang in summary_langs:
-                report["summarized"] += await summarize_missing(session, lang=lang, document_ids=report["reloaded"])
-            report["embedded"] = await embed_missing(session, document_ids=report["reloaded"])
+    if pending and get_settings().llm_fake:
+        report["llm_skipped"] = True
+        log.warning("LLM_FAKE=true라 요약·임베딩을 건너뜁니다: %s. 실제 키로 다시 실행하면 채웁니다.", pending)
+    elif pending:
+        # 요약은 DB의 다른 법령에 이미 있는 언어만 만든다 (요약을 쓰지 않는 환경에서 비용이 생기지 않게)
+        summary_langs = list((await session.execute(
+            select(Chunk.lang).where(Chunk.kind == "summary", Chunk.document_id.not_in(pending)).distinct()
+        )).scalars().all())
+        for lang in summary_langs:
+            report["summarized"] += await summarize_missing(session, lang=lang, document_ids=pending)
+        report["embedded"] = await embed_missing(session, document_ids=pending)
+        await session.execute(
+            update(LegalDocument).where(LegalDocument.id.in_(pending)).values(needs_reindex=False)
+        )
+        await session.commit()
+        report["reindexed"] = pending
+    report["pending_reindex"] = pending if report["llm_skipped"] else []
 
-    after = await check_versions(session, today)
-    report["checked"] = after
-    report["still_outdated"] = [c.document_id for c in after if c.status == "outdated"]
+    if changed:
+        after = await check_versions(session, today)
+        report["checked"] = after
+        report["still_outdated"] = [c.document_id for c in after if c.status == "outdated"]
     return report

@@ -21,6 +21,7 @@
 | | `loaded_at` TIMESTAMPTZ NULL | 이 판을 DB에 적재한 시각 | F-08 |
 | | `version_status` TEXT | 최신 판 확인 결과 `current`(최신) · `upcoming`(최신, 시행 예정 개정 있음) · `outdated`(새 판이 시행 중) · `unknown`(확인 못 함). 새 판을 적재하면 `unknown`으로 돌아간다 | F-01, F-02, F-08 |
 | | `version_checked_at` TIMESTAMPTZ NULL, `version_checked_source` TEXT NULL | 마지막 확인 시각, 비교한 곳(`law.go.kr` · `legalize-kr`) | F-08 |
+| | `needs_reindex` BOOL | 동기화로 새 판을 적재했지만 쉬운 요약·임베딩을 아직 못 만든 법령. 다음 동기화에서 채운다 | F-08 |
 | | `latest_mst` TEXT NULL, `upcoming_mst` TEXT NULL, `upcoming_effective_from` DATE NULL | 확인 당시 시행 중인 판, 공포됐지만 시행 전인 판과 그 시행일 | F-02 |
 | DocumentRelation (`document_relations`) | `src_doc`, `dst_doc`, `rel` (PK) | 법령 사이 관계: `GUIDES`(시행령·시행규칙 → 상위 법률), `AMENDS`, `REPLACES` | F-02 |
 | Provision (`provisions`) | `id` TEXT PK | 조문 노드 ID. 예: `출입국관리법:J25:H1` (제25조 제1항) | F-01, F-02 |

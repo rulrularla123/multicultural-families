@@ -21,6 +21,7 @@ COLUMNS = [
     ("latest_mst", "TEXT"),                  # 확인 당시 시행 중인 판
     ("upcoming_mst", "TEXT"),                # 공포됐지만 시행 전인 판
     ("upcoming_effective_from", "DATE"),
+    ("needs_reindex", "BOOLEAN NOT NULL DEFAULT false"),  # 새 판을 받았지만 요약·임베딩을 아직 못 만듦
 ]
 
 

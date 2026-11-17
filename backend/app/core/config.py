@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     law_go_kr_oc: str = ""
     # 최신 판 확인이 이보다 오래됐으면 답변·조문 화면에 "최신 판 확인 필요"를 표시한다
     law_version_max_age_days: int = 7
+    # 서버가 켜져 있는 동안 이 주기(시간)마다 최신 판을 확인하고, 새 판이 시행 중인 법령만 다시 받아 요약·임베딩한다.
+    # 0이면 자동 동기화를 끈다 (테스트는 0)
+    law_sync_interval_hours: float = 24
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 

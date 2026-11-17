@@ -179,7 +179,7 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "check_versions", fake_check)
     monkeypatch.setattr(pipeline, "complete", fake_complete)
     monkeypatch.setattr(pipeline, "embed_texts", fake_embed)
-    monkeypatch.setattr(get_settings(), "llm_fake", False)
+    monkeypatch.setattr(get_settings(), "llm_fake", True)
 
     async def run():
         engine = create_async_engine(get_settings().database_url, poolclass=NullPool)
@@ -194,12 +194,27 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
                     "WHERE document_id = :d AND level = 'jo'"), {"d": doc_id})
                 await s.execute(text("UPDATE chunks SET embedding = array_fill(0.5::float4, ARRAY[1536])::vector "
                                      "WHERE document_id = :d"), {"d": doc_id})
+                # 요약 언어는 다른 법령에 있는 언어를 따른다: 다른 법령에 vi 요약 표식 하나를 둔다
+                await s.execute(text(
+                    "INSERT INTO chunks (provision_id, jo_id, document_id, kind, lang, content, domains) "
+                    "SELECT id, id, document_id, 'summary', 'vi', 'sync-test-marker', '{}' FROM provisions "
+                    "WHERE document_id <> :d AND level = 'jo' LIMIT 1"), {"d": doc_id})
                 await s.commit()
                 other_before.update(dict((await s.execute(text(
                     "SELECT document_id, count(embedding) FROM chunks WHERE document_id <> :d GROUP BY 1"
                 ), {"d": doc_id})).all()))
 
+                # 1차: LLM_FAKE라 재적재만 하고 요약·임베딩은 대기로 남긴다
+                first = await pipeline.sync_versions(s, root, TODAY)
+                waiting = (await s.execute(text(
+                    "SELECT needs_reindex FROM legal_documents WHERE id = :d"), {"d": doc_id})).scalar_one()
+                # 2차: 실제 LLM이 켜지면 판이 같아도 대기 중인 법령의 요약·임베딩을 채운다
+                monkeypatch.setattr(get_settings(), "llm_fake", False)
                 report = await pipeline.sync_versions(s, root, TODAY)
+                report["first"] = first
+                report["waiting"] = waiting
+                report["after_flag"] = (await s.execute(text(
+                    "SELECT needs_reindex FROM legal_documents WHERE id = :d"), {"d": doc_id})).scalar_one()
 
                 text_ = (await s.execute(text(
                     "SELECT full_text_ko FROM provisions WHERE id = :i"), {"i": f"{doc_id}:J2"})).scalar_one()
@@ -215,15 +230,48 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
         finally:
             async with Session() as s:
                 await s.execute(text("DELETE FROM legal_documents WHERE id = :d"), {"d": doc_id})
+                await s.execute(text("DELETE FROM chunks WHERE content = 'sync-test-marker'"))
                 await s.commit()
                 await pipeline.rebuild_relations(s)
             await engine.dispose()
 
     report, text_, emb, summaries, other_after = asyncio.run(run())
-    assert calls["fetch"] == [[doc_id]]
-    assert report["changed"] == [doc_id] and report["reloaded"] == [doc_id]
-    assert report["still_outdated"] == []
+    first = report["first"]
+    assert calls["fetch"] == [[doc_id]]                      # 받기는 1차에서 한 번만
+    assert first["changed"] == [doc_id] and first["reloaded"] == [doc_id]
+    assert first["llm_skipped"] and first["pending_reindex"] == [doc_id] and report["waiting"] is True
+    assert first["still_outdated"] == []
+    assert report["changed"] == [] and report["reindexed"] == [doc_id] and report["after_flag"] is False
     assert "30일" in text_                                  # 새 판 원문으로 바뀜
     assert emb[0] == emb[1] and calls["embedded"] == emb[0]  # 이 법령 청크만 모두 새로 임베딩
     assert summaries and all(s.endswith("요약") for s in summaries)
     assert other_after == other_before                      # 다른 법령은 건드리지 않음
+
+
+def test_sync_due_rules():
+    """자동 동기화: 확인한 적 없거나 주기가 지났을 때만, 주기 0이면 끔."""
+    from app.services.law_sync import is_due
+
+    now = datetime(2026, 11, 17, tzinfo=UTC)
+    assert is_due(None, now, 24)
+    assert is_due(now - timedelta(hours=25), now, 24)
+    assert not is_due(now - timedelta(hours=1), now, 24)
+    assert not is_due(None, now, 0)
+
+
+def test_server_does_not_start_sync_when_disabled():
+    """테스트 설정(LAW_SYNC_INTERVAL_HOURS=0)에서는 서버가 자동 동기화를 돌리지 않는다."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.services import law_sync
+
+    called = []
+    orig = law_sync.sync_loop
+    law_sync.sync_loop = lambda *a, **k: called.append(1)
+    try:
+        with TestClient(app):
+            pass
+    finally:
+        law_sync.sync_loop = orig
+    assert called == []

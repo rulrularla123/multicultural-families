@@ -109,16 +109,16 @@ async def _sync(session, args) -> None:
     r = await pipeline.sync_versions(session, Path(args.root), today_kr(), dry_run=args.dry_run)
     for c in r["checked"]:
         print(f"  [{c.status}] {c.document_id}: {VERSION_LABEL[c.status]} · {c.source}")
+    if r["reindexed"]:
+        print(f"요약·임베딩 새로 만듦: {', '.join(r['reindexed'])} (요약 {r['summarized']}개 · 임베딩 {r['embedded']}개)")
+    if r["pending_reindex"]:
+        print(f"요약·임베딩 대기: {', '.join(r['pending_reindex'])} (LLM_FAKE=true. 실제 키로 다시 실행하면 채움)")
     if not r["changed"]:
-        print("새 판이 시행 중인 법령이 없습니다. 재적재·임베딩을 하지 않았습니다.")
+        print("새 판이 시행 중인 법령이 없습니다.")
     elif args.dry_run:
         print(f"새 판 시행 중 {len(r['changed'])}건 (--dry-run이라 받지 않음): {', '.join(r['changed'])}")
     else:
         print(f"새 판 시행 중 {len(r['changed'])}건 → 재적재 {len(r['reloaded'])}건: {', '.join(r['reloaded']) or '없음'}")
-        if r["llm_skipped"]:
-            print("요약·임베딩: LLM_FAKE=true라 건너뜀 (검색 품질을 위해 실제 키로 다시 실행 필요)")
-        else:
-            print(f"요약 {r['summarized']}개 · 임베딩 {r['embedded']}개 새로 만듦")
         if r["still_outdated"]:
             print(f"아직 옛 판: {', '.join(r['still_outdated'])} (legalize-kr에 새 판이 아직 반영되지 않았을 수 있음)")
     if args.strict and (r["still_outdated"] or any(c.status == "unknown" for c in r["checked"])):

@@ -16,7 +16,7 @@ GET_SQL = text(
            d.title_ko, d.doc_type, d.status, d.source_url, d.reviewed, d.reviewed_by, d.reviewed_at,
            d.effective_from AS doc_from, d.effective_to AS doc_to,
            (SELECT c.content FROM chunks c
-             WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi,
+             WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'azure_translated_summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi,
            (SELECT c.content FROM chunks c
              WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'summary' AND c.lang = 'ko' LIMIT 1) AS summary_ko
     FROM provisions p JOIN legal_documents d ON d.id = p.document_id
@@ -64,6 +64,8 @@ async def get_provision(id: str = Query(..., examples=["출입국관리법:J25"]
         full_text_ko=r.full_text_ko,
         summary_vi=_strip_header(r.summary_vi),
         summary_ko=_strip_header(r.summary_ko),
+        summary_translation_status="translated" if r.summary_vi else "unavailable",
+        summary_translation_provider="azure_translator" if r.summary_vi else None,
         effective=effective,
         effective_from=r.effective_from or r.doc_from,
         effective_to=r.effective_to or r.doc_to,

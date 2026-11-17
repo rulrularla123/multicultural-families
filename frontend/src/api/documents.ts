@@ -1,11 +1,10 @@
-import { apiDelete, apiGet, apiPost, apiUpload } from './client'
+import { apiDelete, apiGet, apiPost } from './client'
+import { prepareUpload } from '../documents/prepareUpload'
 import type { Analysis, AnalysisListItem, AnswerIn, Lang } from './types'
 
-export function uploadDocument(file: File, lang: Lang): Promise<Analysis> {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('lang', lang)
-  return apiUpload<Analysis>('/documents', form)
+export async function uploadDocument(file: File, lang: Lang): Promise<Analysis> {
+  const prepared = await prepareUpload(file)
+  return apiPost<Analysis>('/documents', { ...prepared, lang })
 }
 
 export function listMyAnalyses(): Promise<AnalysisListItem[]> {

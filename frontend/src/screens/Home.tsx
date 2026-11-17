@@ -137,7 +137,6 @@ export default function Home() {
           </span>
           <span className="panel--cta__text">
             <strong>{t('sidebar.newAnalysis')}</strong>
-            <small>{t('dash.cta.desc')}</small>
           </span>
           <ChevronRight size={20} aria-hidden />
         </button>
@@ -328,7 +327,6 @@ export default function Home() {
             </dd>
           </div>
         </dl>
-        <p className="panel__note">{t('dash.laws.note')}</p>
       </section>
     </div>
   )

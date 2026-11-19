@@ -17,6 +17,7 @@ from app.models.law import (
     ProvisionEdge,
     UnresolvedReference,
 )
+from app.translation import SUMMARY_KIND, require_translation, translate_texts
 from ingest.chunker import chunk_document
 from ingest.loader import RawDocument
 from ingest.parsers.structure import parse_law
@@ -197,7 +198,9 @@ async def embed_missing(session: AsyncSession, batch: int = 64) -> int:
     while True:
         rows = (
             await session.execute(
-                select(Chunk.id, Chunk.content).where(Chunk.embedding.is_(None)).order_by(Chunk.id).limit(batch)
+                select(Chunk.id, Chunk.content).where(
+                    Chunk.embedding.is_(None), (Chunk.lang != "vi") | (Chunk.kind == SUMMARY_KIND)
+                ).order_by(Chunk.id).limit(batch)
             )
         ).all()
         if not rows:
@@ -214,12 +217,6 @@ async def embed_missing(session: AsyncSession, batch: int = 64) -> int:
 
 
 SUMMARY_INSTRUCTIONS = {
-    "vi": (
-        "You summarize one article of Korean immigration/residence law for Vietnamese marriage migrants living "
-        "in Korea. Write 2-4 sentences in plain Vietnamese. Keep every number, deadline, amount and condition "
-        "exactly. Put the key Korean legal term in parentheses after its Vietnamese translation the first time, "
-        "e.g. gia hạn thời gian lưu trú (체류기간 연장허가). Do not add information that is not in the article."
-    ),
     "ko": (
         "한국 출입국·체류 법령 조문 하나를 법률 지식이 없는 사람도 이해하도록 쉬운 한국어 2~4문장으로 요약한다. "
         "숫자·기한·금액·조건은 그대로 둔다. 조문에 없는 내용은 덧붙이지 않는다."
@@ -228,11 +225,16 @@ SUMMARY_INSTRUCTIONS = {
 
 
 async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency: int = 16) -> int:
-    """조마다 쉬운 요약 청크를 만든다. 베트남어 요약은 베트남어 질문의 검색 재현율을 높인다."""
+    """LLM은 한국어 요약만 만든다. 베트남어는 한국어 요약을 NMT API로 번역한다."""
     from app.core.config import get_settings
 
     if get_settings().llm_fake:
         raise RuntimeError("LLM_FAKE=true 상태에서는 요약을 저장하지 않습니다.")
+    if lang == "vi":
+        # 키가 없는데 OpenAI 한국어 요약부터 생성해 비용을 쓰지 않는다.
+        require_translation()
+        await summarize_missing(session, lang="ko", concurrency=concurrency)
+        return await translate_summaries_missing(session)
     instructions = SUMMARY_INSTRUCTIONS[lang]
     rows = (
         await session.execute(
@@ -278,6 +280,38 @@ async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency
         await session.commit()
         done += len(results)
         log.info("요약(%s) %d/%d", lang, done, len(rows))
+    return done
+
+
+async def translate_summaries_missing(session: AsyncSession) -> int:
+    """기존 LLM 베트남어 요약은 재사용하지 않고, 성공한 API 번역만 별도 kind로 저장한다."""
+    rows = (await session.execute(text(
+        """
+        SELECT c.jo_id, c.document_id, c.content, c.domains
+        FROM chunks c
+        WHERE c.kind = 'summary' AND c.lang = 'ko'
+          AND NOT EXISTS (SELECT 1 FROM chunks v
+                          WHERE v.jo_id = c.jo_id AND v.lang = 'vi' AND v.kind = :kind)
+        ORDER BY c.jo_id
+        """
+    ), {"kind": SUMMARY_KIND})).all()
+    done = 0
+    for i in range(0, len(rows), 50):
+        batch = rows[i:i + 50]
+        # 경로·조문 ID는 번역하지 않는다. 한국어 요약 본문만 전송한다.
+        sources = [r.content.split("\n", 1)[1] for r in batch]
+        translations = await translate_texts(sources, "vi")
+        if any(t.status != "translated" for t in translations):
+            raise RuntimeError("법령 요약 번역 실패. 이번 묶음은 저장하지 않았습니다. 설정·연결을 확인 후 재시도하세요.")
+        await session.execute(insert(Chunk), [
+            {"provision_id": r.jo_id, "jo_id": r.jo_id, "document_id": r.document_id,
+             "kind": SUMMARY_KIND, "lang": "vi", "content": f"{r.content.split(chr(10), 1)[0]}\n{t.text}",
+             "tokens": None, "domains": r.domains}
+            for r, t in zip(batch, translations, strict=True)
+        ])
+        await session.commit()
+        done += len(batch)
+        log.info("번역 요약(vi, azure_translator) %d/%d", done, len(rows))
     return done
 
 

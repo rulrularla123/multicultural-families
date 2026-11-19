@@ -23,6 +23,7 @@ VALID = """
   AND d.status = 'in_force'
   AND (CAST(:domains AS text[]) IS NULL OR c.domains && CAST(:domains AS text[]) OR cardinality(c.domains) = 0)
   AND (:include_samples OR NOT d.is_sample)
+  AND (c.lang <> 'vi' OR c.kind = 'azure_translated_summary')
 """
 
 VECTOR_SQL = text(

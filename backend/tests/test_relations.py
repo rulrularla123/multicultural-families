@@ -56,3 +56,23 @@ def test_resolve_guides_and_unresolved():
     edges, unresolved = resolve_edges(provs, docs, known)
     assert [(e.dst_id, e.rel) for e in edges] == [("출입국관리법:J25", "GUIDES")]
     assert unresolved[0].reason == "대상 법령 미적재: 형법"
+
+
+def test_rule_links_parent_decree_and_keeps_cross_law_reference_once():
+    docs = [
+        DocMeta("출입국관리법시행규칙", "출입국관리법 시행규칙", (), parent_decree="출입국관리법시행령"),
+        DocMeta("출입국관리법시행령", "출입국관리법 시행령", ()),
+        DocMeta("국적법", "국적법", ()),
+    ]
+    rule = "출입국관리법시행규칙:J1"
+    decree = "출입국관리법시행령:J31:H1"
+    nationality = "국적법:J6:H2"
+    source = SourceProvision(rule, "출입국관리법시행규칙", rule, "영 제31조제1항 및 「국적법」 제6조제2항, 같은 법 제6조제2항")
+
+    edges, unresolved = resolve_edges([source], docs, {rule, decree, nationality})
+
+    assert [(e.src_id, e.dst_id, e.rel) for e in edges] == [
+        (rule, decree, "GUIDES"),
+        (rule, nationality, "REFERENCES"),
+    ]
+    assert unresolved == []

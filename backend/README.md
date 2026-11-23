@@ -17,9 +17,18 @@ LLM_FAKE=true .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 - `LLM_FAKE=true`: OpenAI 없이 고정 응답으로 화면 흐름만 확인한다. 답변에 `[DEV FAKE RESPONSE]`가 붙는다.
-- 실제 답변: 환경변수 `OPENAI_API_KEY`를 넣고 `LLM_FAKE`를 끈 뒤 `python -m ingest summarize --lang vi`로 요약·임베딩을 만든다.
+- 실제 답변: 서버 환경변수 `OPENAI_API_KEY`를 설정하고 `LLM_FAKE`를 끈다. 법령 번역에는 별도로 `AZURE_TRANSLATOR_KEY`가 필요하다. 기존 `ingest summarize --lang vi`는 한국어 요약(OpenAI) → 베트남어 번역(Azure Translator NMT) → 임베딩 순서다. 실제 번역 API 호출·품질은 운영 설정 후 별도 확인해야 한다.
 - 법령 원문 새로 받기: `python -m ingest fetch` (legalize-kr, 오늘 시행 중인 판을 고른다)
 - 시연용 서류: `data/demo/*.docx` (가상 안내문). 다시 만들기: `python scripts/make_demo_docs.py`
+
+### 법령 번역 설정
+
+- Azure에서 **Translator 단일 서비스 리소스**를 만들고 가격 책정 계층을 **F0(무료)**로 선택한다. F0는 매 이용 월 200만 자를 제공하며, 한도 소진 시 번역이 중단된다. 앱이 요금제를 조회·변경하지 않으므로 리소스가 F0인지 Azure 포털에서 확인해야 한다.
+- 서버에만 `AZURE_TRANSLATOR_KEY`를 설정한다. 지역 리소스는 `AZURE_TRANSLATOR_REGION`도 설정하고, global 리소스는 생략한다. 키 값은 브라우저·로그·저장소에 넣지 않으며 HTTP 헤더로만 전송한다.
+- `TRANSLATION_TIMEOUT_SECONDS`는 요청별 제한 시간이며 기본 10초다. `LLM_FAKE=true`에서는 외부 번역 API도 호출하지 않고 `[DEV FAKE TRANSLATION]`으로 구분한다.
+- 질문 답변·서류 분석의 법령 인용은 한국어 원문 검증 후 Azure 표준 NMT API로 번역한다. 키 미설정·무료 한도 초과·번역 실패 시 원문은 유지하고 번역 불가를 표시한다. 다른 유료 번역 API나 LLM 번역으로 자동 전환하지 않는다. 답변·분석 설명은 여전히 LLM이 생성한다.
+- 조문 요약의 기존 LLM 베트남어 청크는 재사용하지 않는다. 번역 키 설정 후 기존 `summarize --lang vi` 작업으로 NMT 요약·임베딩을 생성해야 한다. 생성 전에도 한국어 조문으로 검색할 수 있다.
+- 번역 API 비용은 기존 OpenAI `usage_log` 집계에 포함되지 않는다. [번역 처리·이전 기준](../docs/decisions/law-translation-2026-11-17.md)을 참고한다.
 
 ### 프론트엔드
 

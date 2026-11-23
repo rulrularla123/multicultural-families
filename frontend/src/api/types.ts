@@ -1,4 +1,5 @@
 export type Lang = 'vi' | 'ko'
+export type TranslationStatus = 'translated' | 'original' | 'unavailable' | 'not_verified' | 'development'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -10,6 +11,8 @@ export interface Citation {
   provision_id: string
   quote_ko: string
   quote_translation: string
+  translation_status?: TranslationStatus
+  translation_provider?: string | null
   verified: boolean
   verify_error: string | null
 }
@@ -64,6 +67,8 @@ export interface ProvisionDetail {
   full_text_ko: string
   summary_vi: string | null
   summary_ko: string | null
+  summary_translation_status?: TranslationStatus
+  summary_translation_provider?: string | null
   effective: boolean
   effective_from: string | null
   effective_to: string | null
@@ -138,6 +143,8 @@ export interface ClauseCitation {
   quote_ko: string
   provision_id: string
   quote_translation: string
+  translation_status?: TranslationStatus
+  translation_provider?: string | null
 }
 
 export interface Clause {

@@ -28,6 +28,7 @@ from app.documents.segment import Segment, segment_document
 from app.generation.answer import Citation
 from app.generation.verify import check_citation, lookup, quote_in_text
 from app.retrieval.pipeline import retrieve
+from app.translation import translate_texts
 
 log = logging.getLogger(__name__)
 STAGES = ["extracted", "searching", "analyzing", "verifying"]
@@ -61,6 +62,23 @@ def _doc_facts(intake: dict) -> list[dict]:
     return fx.initial_facts(intake.get("facts") or [])
 
 
+def _result_view(result: dict | None) -> dict | None:
+    """예전 분석에 저장된 출처 불명(LLM) 번역은 다시 노출하지 않는다. DB 원본은 보존한다."""
+    if not result:
+        return result
+    out = dict(result)
+    for key in ("clauses", "cautions"):
+        out[key] = [
+            item | {"citations": [
+                c if c.get("translation_status") in ("translated", "original", "development") else
+                c | {"quote_translation": "", "translation_status": "unavailable", "translation_provider": None}
+                for c in item.get("citations", [])
+            ]}
+            for item in result.get(key, [])
+        ]
+    return out
+
+
 def _row_view(r) -> dict:
     intake = r.intake or {}
     return {
@@ -81,7 +99,7 @@ def _row_view(r) -> dict:
                                                "questions")} if intake else None,
         "facts": fx.public(r.facts or []),
         "answers": r.answers,
-        "result": r.result,
+        "result": _result_view(r.result),
         "checklist": r.checklist,
     }
 
@@ -312,13 +330,18 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         )).all()
     ) if cits else {}
 
+    valid_quotes = list(dict.fromkeys(
+        c.quote_ko for c in cits if check_citation(c.provision_id, c.quote_ko, infos.get(c.provision_id)).ok
+    ))
+    translations = dict(zip(valid_quotes, await translate_texts(valid_quotes, lang), strict=True))
+
     def cite(c: Citation) -> dict | None:
         chk = check_citation(c.provision_id, c.quote_ko, infos.get(c.provision_id))
         if not chk.ok:
             return None  # 재생성 후에도 검증에 실패한 인용은 보여주지 않는다
         pid = chk.corrected_id or c.provision_id
         return {"provision_id": pid, "path": paths.get(pid, pid), "quote_ko": c.quote_ko,
-                "quote_translation": c.quote_translation}
+                **translations[c.quote_ko].citation_fields()}
 
     seg_by_id = {s.id: s for s in segments}
     seen: set[str] = set()

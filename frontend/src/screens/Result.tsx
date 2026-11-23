@@ -64,6 +64,8 @@ export default function Result({ analysis, onChanged }: { analysis: Analysis; on
           {t('result.confidence')}: {t(`chat.confidence.${result.confidence}`)}
         </span>
 
+        {result.notice && <p className="page-desc" style={{ marginTop: 8 }}>{result.notice}</p>}
+
         {result.needs_expert && (
           <div className="state state--error" style={{ marginTop: 8, textAlign: 'left' }}>
             <strong>{t('result.needsExpert')}</strong>
@@ -104,6 +106,12 @@ export default function Result({ analysis, onChanged }: { analysis: Analysis; on
                             onClick={() => navigate({ name: 'provision', id: c.provision_id })}
                           >
                             {c.provision_id} <ArrowUpRight size={13} aria-hidden />
+                          {c.version_warning && (
+                            <span className="badge badge--caution" style={{ marginLeft: 6 }}>
+                              {t(`version.${c.version_warning}`)}
+                            </span>
+                          )}
+
                           </button>
                           <p style={{ margin: '4px 0' }}>{c.quote_ko}</p>
                           <LegalTranslation text={c.quote_translation} status={c.translation_status} />

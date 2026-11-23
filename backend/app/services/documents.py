@@ -20,6 +20,7 @@ from app.common.identity_patterns import PLACEHOLDER, mask
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.lang import Lang, t, today_kr
+from app.core.law_version import version_warning
 from app.documents import facts as fx
 from app.documents.analyze import DocumentAnalysis, run_analysis
 from app.documents.intake import Intake, run_intake
@@ -340,8 +341,13 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         if not chk.ok:
             return None  # 재생성 후에도 검증에 실패한 인용은 보여주지 않는다
         pid = chk.corrected_id or c.provision_id
+        info = infos[c.provision_id]
+        warning = version_warning(info.version_status, info.version_checked_at)
+        warnings.add(warning)
         return {"provision_id": pid, "path": paths.get(pid, pid), "quote_ko": c.quote_ko,
-                **translations[c.quote_ko].citation_fields()}
+                "version_warning": warning, **translations[c.quote_ko].citation_fields()}
+
+    warnings: set[str | None] = set()
 
     seg_by_id = {s.id: s for s in segments}
     seen: set[str] = set()
@@ -376,6 +382,19 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
     must = [c for c in clauses if c["category"] == "must_check"]
     uncited = sum(not c["citations"] for c in must)
     confidence = "low" if must and uncited * 2 > len(must) else a.confidence
+    cautions = [
+        {"title": c.title, "detail": c.explanation_detail, "explanation": c.explanation_detail,
+         "explanation_simple": c.explanation_simple, "explanation_detail": c.explanation_detail, "kind": c.kind,
+         "clause_ids": [x for x in c.clause_ids if x in seg_by_id],
+         "citations": [x for x in map(cite, c.citations) if x]}
+        for c in a.cautions
+    ]
+    # 근거 법령보다 새 판이 시행 중이면 상담 안내, 최신 판 확인을 못 했으면 공식 원문 대조 안내
+    version_key = "law_outdated" if "outdated" in warnings else "law_unchecked" if "unchecked" in warnings else None
+    notice = " ".join(x for x in (
+        t("low_confidence", lang) if confidence == "low" else None,
+        t(version_key, lang) if version_key else None,
+    ) if x) or None
     return {
         "title": intake.title,
         "doc_type_label": intake.doc_type_label,
@@ -386,13 +405,7 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         "basic_info": [i.model_dump() for i in intake.basic_info],
         "counts": counts,
         "clauses": clauses,
-        "cautions": [
-            {"title": c.title, "detail": c.explanation_detail, "explanation": c.explanation_detail,
-             "explanation_simple": c.explanation_simple, "explanation_detail": c.explanation_detail, "kind": c.kind,
-             "clause_ids": [x for x in c.clause_ids if x in seg_by_id],
-             "citations": [x for x in map(cite, c.citations) if x]}
-            for c in a.cautions
-        ],
+        "cautions": cautions,
         "next_actions": [
             {"id": f"a{i + 1}", "text": x.text, "clause_id": x.clause_id if x.clause_id in seg_by_id else None,
              "due": x.due}
@@ -401,8 +414,8 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         "open_questions": [{"id": f"oq{i + 1}", "question": q.question, "why": q.why}
                            for i, q in enumerate(a.open_questions[:3])],
         "confidence": confidence,
-        "needs_expert": a.needs_expert or confidence == "low",
-        "notice": t("low_confidence", lang) if confidence == "low" else None,
+        "needs_expert": a.needs_expert or confidence == "low" or version_key == "law_outdated",
+        "notice": notice,
         "not_immigration": intake.doc_kind == "not_immigration",
         "disclaimer": t("disclaimer", lang),
         "as_of": as_of.isoformat(),

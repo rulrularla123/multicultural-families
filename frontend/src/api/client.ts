@@ -174,6 +174,9 @@ export interface Health {
   chunks: number
   embedded: number
   llm_fake: boolean
+  laws_outdated?: number
+  laws_unchecked?: number
+  laws_checked_at?: string | null
 }
 
 export async function getHealth(): Promise<Health> {

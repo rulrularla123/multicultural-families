@@ -51,6 +51,17 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "vi": "Căn cứ pháp lý tìm được chưa đủ để trả lời chắc chắn. Nên hỏi thêm chuyên gia hoặc ☎ 1345.",
         "ko": "찾은 근거가 확실히 답하기에 부족합니다. 전문가나 외국인종합안내센터(☎ 1345)에 확인하세요.",
     },
+    "law_outdated": {
+        "vi": "Đã có phiên bản mới hơn của luật được trích dẫn đang có hiệu lực. Hãy xem bản chính thức tại "
+              "law.go.kr và hỏi chuyên gia hoặc ☎ 1345.",
+        "ko": "인용한 법령보다 새로운 판이 이미 시행 중입니다. 국가법령정보센터(law.go.kr) 공식 원문을 확인하고 "
+              "전문가나 외국인종합안내센터(☎ 1345)에 확인하세요.",
+    },
+    "law_unchecked": {
+        "vi": "Gần đây chưa kiểm tra được đây có phải bản luật mới nhất hay không. "
+              "Hãy đối chiếu với bản chính thức tại law.go.kr.",
+        "ko": "인용한 법령이 최신 판인지 최근에 확인하지 못했습니다. 국가법령정보센터(law.go.kr) 공식 원문과 대조하세요.",
+    },
     "stage.rewriting": {"vi": "Đang hiểu câu hỏi", "ko": "질문 이해하는 중"},
     "stage.searching": {"vi": "Đang tìm luật xuất nhập cảnh, lưu trú", "ko": "출입국·체류 법령 찾는 중"},
     "stage.expanding": {"vi": "Đang xem điều luật liên quan", "ko": "관련 조문 확인하는 중"},

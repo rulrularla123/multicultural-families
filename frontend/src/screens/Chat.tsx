@@ -146,6 +146,10 @@ export default function Chat({ analysisId, initialQuestion }: { analysisId?: str
                   </div>
                 )}
 
+                {m.answer.notice && (
+                  <p style={{ color: 'var(--muted)', marginTop: 6, fontSize: 13 }}>{m.answer.notice}</p>
+                )}
+
                 {m.answer.needs_expert && (
                   <p style={{ color: 'var(--danger)', marginTop: 6, fontSize: 13 }}>{t('chat.needsExpert')}</p>
                 )}

@@ -8,6 +8,8 @@
   python -m ingest all data/laws [--samples]       # load → summarize(vi) → embed
   python -m ingest review <문서ID> --by 이름 [--note 메모] [--unset]  # 사람 검토 기록
   python -m ingest review --list                   # 검토/미검토 현황
+  python -m ingest versions [--strict]             # 적재한 판이 지금 시행 중인 최신 판인지 확인·저장
+  python -m ingest sync [data/laws] [--dry-run]    # 확인 후 새 판이 시행 중인 법령만 받기·재적재·요약·임베딩
 """
 
 import argparse
@@ -76,6 +78,53 @@ async def _review(session, args) -> None:
     print(f"{d.id}: {state}")
 
 
+VERSION_LABEL = {
+    "current": "최신 판",
+    "upcoming": "최신 판 (시행 예정 개정 있음)",
+    "outdated": "새 판이 시행 중 → fetch·load 필요",
+    "unknown": "확인 못 함",
+}
+
+
+async def _versions(session, args) -> None:
+    from app.core.lang import today_kr
+    from ingest import pipeline
+
+    results = await pipeline.check_versions(session, today_kr())
+    for r in results:
+        extra = f"  시행 예정 {r.upcoming_effective_from} (MST {r.upcoming_mst})" if r.upcoming_mst else ""
+        reason = f"  «{r.reason}»" if r.reason else ""
+        print(f"  [{r.status}] {r.document_id}: {VERSION_LABEL[r.status]} · {r.source}{extra}{reason}")
+    outdated = [r for r in results if r.status == "outdated"]
+    unknown = [r for r in results if r.status == "unknown"]
+    print(f"확인 {len(results)}건 · 새 판 시행 중 {len(outdated)} · 확인 못 함 {len(unknown)}")
+    if args.strict and (outdated or unknown):
+        raise SystemExit(1)
+
+
+async def _sync(session, args) -> None:
+    from app.core.lang import today_kr
+    from ingest import pipeline
+
+    r = await pipeline.sync_versions(session, Path(args.root), today_kr(), dry_run=args.dry_run)
+    for c in r["checked"]:
+        print(f"  [{c.status}] {c.document_id}: {VERSION_LABEL[c.status]} · {c.source}")
+    if r["reindexed"]:
+        print(f"요약·임베딩 새로 만듦: {', '.join(r['reindexed'])} (요약 {r['summarized']}개 · 임베딩 {r['embedded']}개)")
+    if r["pending_reindex"]:
+        print(f"요약·임베딩 대기: {', '.join(r['pending_reindex'])} (LLM_FAKE=true. 실제 키로 다시 실행하면 채움)")
+    if not r["changed"]:
+        print("새 판이 시행 중인 법령이 없습니다.")
+    elif args.dry_run:
+        print(f"새 판 시행 중 {len(r['changed'])}건 (--dry-run이라 받지 않음): {', '.join(r['changed'])}")
+    else:
+        print(f"새 판 시행 중 {len(r['changed'])}건 → 재적재 {len(r['reloaded'])}건: {', '.join(r['reloaded']) or '없음'}")
+        if r["still_outdated"]:
+            print(f"아직 옛 판: {', '.join(r['still_outdated'])} (legalize-kr에 새 판이 아직 반영되지 않았을 수 있음)")
+    if args.strict and (r["still_outdated"] or any(c.status == "unknown" for c in r["checked"])):
+        raise SystemExit(1)
+
+
 async def _run(args) -> None:
     from app.core.db import SessionLocal
     from ingest import pipeline
@@ -83,6 +132,12 @@ async def _run(args) -> None:
     async with SessionLocal() as session:
         if args.cmd == "review":
             await _review(session, args)
+            return
+        if args.cmd == "versions":
+            await _versions(session, args)
+            return
+        if args.cmd == "sync":
+            await _sync(session, args)
             return
         if args.cmd in ("load", "all"):
             docs = discover(Path(args.root), include_samples=args.samples)
@@ -124,6 +179,12 @@ def main() -> None:
     s.add_argument("--note")
     s.add_argument("--unset", action="store_true", help="검토 기록 해제")
     s.add_argument("--list", action="store_true", help="검토 현황 목록")
+    s = sub.add_parser("versions", help="적재한 법령이 최신 판인지 확인 (LAW_GO_KR_OC가 있으면 국가법령정보센터 기준)")
+    s.add_argument("--strict", action="store_true", help="새 판이 시행 중이거나 확인하지 못한 법령이 있으면 종료 코드 1")
+    s = sub.add_parser("sync", help="최신 판 확인 → 바뀐 법령만 받기·재적재·요약·임베딩")
+    s.add_argument("root", nargs="?", default="data/laws")
+    s.add_argument("--dry-run", action="store_true", help="확인만 하고 받지 않음")
+    s.add_argument("--strict", action="store_true", help="동기화 뒤에도 옛 판이거나 확인하지 못한 법령이 있으면 종료 코드 1")
 
     args = p.parse_args()
     if args.cmd == "fetch":

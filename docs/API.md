@@ -26,6 +26,8 @@
 | 동기 버전 | `POST /api/v1/chat` 같은 입력, 응답 `AnswerPayload`(아래 필드) (테스트·디버그용) |
 | 실패 | 422 입력 형식·길이 오류·공백만 있는 질문. 서류 후속 질문은 헤더 없음 400, 본인 건 아님 404. 스트림 시작 뒤 오류는 HTTP 상태 대신 SSE `error`로 전달 |
 
+근거 항목에는 `version_warning`(`outdated`·`unchecked`·`null`)도 붙는다. `outdated`는 인용한 법령보다 새로운 판이 이미 시행 중이라는 뜻으로, `needs_expert=true`와 상담 안내 `notice`를 붙인다. `unchecked`는 최신 판 확인을 못 했거나 확인한 지 `LAW_VERSION_MAX_AGE_DAYS`(기본 7일)가 지났다는 뜻으로, 공식 원문 대조 안내 `notice`를 붙인다. 서류 분석 결과의 인용(`result.clauses[].citations`, `result.cautions[].citations`)도 같은 필드와 안내를 쓴다.
+
 `AnswerPayload`: `{kind, lang, as_of, answer, citations, confidence, needs_expert, follow_up_questions, notice, disclaimer, sources, search_queries, number_checks, analysis_id, usage}`. `confidence`는 `high`·`medium`·`low`이며, `sources`는 `{provision_id, document_id, title, path, retrieved_by}` 목록이다. `number_checks`에 숫자 검증 결과가 포함된다.
 
 현재 질문·이전 대화·서류 후속 질문 맥락의 식별정보 패턴은 질의 재작성·검색·답변 생성 전에 마스킹한다. 본문 인용 번호와 근거 목록의 연결이 누락되거나 모호하면 한 번 재생성한다. 그래도 연결하지 못하면 해당 법적 주장 대신 근거 확인 실패 안내를 반환한다(`confidence=low`, `needs_expert=true`).
@@ -36,7 +38,7 @@
 
 | 요청 | 응답 |
 | --- | --- |
-| `GET /api/v1/provisions?id={provision_id}` | `{id, document_id, document_title, doc_type, level, number_label, path, full_text_ko, summary_vi, summary_ko, summary_translation_status, summary_translation_provider, effective, effective_from, effective_to, status, source_url, reviewed, reviewed_by, reviewed_at}` |
+| `GET /api/v1/provisions?id={provision_id}` | `{id, document_id, document_title, doc_type, level, number_label, path, full_text_ko, summary_vi, summary_ko, summary_translation_status, summary_translation_provider, effective, effective_from, effective_to, status, source_url, reviewed, reviewed_by, reviewed_at, law_mst, issued_date, promulgation_no, version_url, official_url, loaded_at, version_status, version_checked_at, version_checked_source, upcoming_effective_from, version_warning}`. `version_url`은 적재한 판의 국가법령정보센터 원문, `official_url`은 지금 시행 중인 판의 해당 조 링크 |
 | `GET /api/v1/provisions/related?id={provision_id}` | `[{provision_id, path, rel, direction, evidence}]`. 수집 관계는 `REFERENCES`(참조)·`GUIDES`(시행령·규칙 → 법률), 방향은 `outgoing`·`incoming` |
 | `GET /api/v1/search?q=...&lang=vi&rewrite=true` (선택: `as_of`) | `{queries_ko, domains, as_of, results: [{provision_id, path, score, source}]}`. 검색 디버그용 |
 
@@ -76,4 +78,4 @@
 
 | 요청 | 응답 |
 | --- | --- |
-| `GET /health` | `{status, documents, provisions, chunks, embedded, llm_fake}` |
+| `GET /health` | `{status, documents, provisions, chunks, embedded, llm_fake, laws_outdated, laws_unchecked, laws_checked_at}`. `laws_outdated`는 새 판이 시행 중인 법령 수, `laws_unchecked`는 확인 못 했거나 확인이 오래된 법령 수, `laws_checked_at`은 가장 오래된 확인 시각. `law_sync`는 자동 동기화 `{enabled, interval_hours, last_run_at, changed, reloaded, still_outdated, embedded, reindexed, pending_reindex, llm_skipped, error}`(서버 프로세스별, 재시작하면 비워짐) |

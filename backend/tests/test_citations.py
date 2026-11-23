@@ -20,3 +20,9 @@ def test_repeated_marker_keeps_one_entry():
     out, items = align_citations("A [1]. B [1]. C [2].", [(1, "x"), (1, "중복"), (2, "y")])
     assert out == "A [1]. B [1]. C [2]."
     assert items == ["x", "y"]
+
+
+def test_multi_digit_citation_markers_match_whole_number():
+    out, items = align_citations("기한 [123]. 서류 [12]. 재확인 [123].", [(12, "서류"), (123, "기한")])
+    assert out == "기한 [1]. 서류 [2]. 재확인 [1]."
+    assert items == ["기한", "서류"]

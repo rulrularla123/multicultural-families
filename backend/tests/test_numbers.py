@@ -11,3 +11,8 @@ def test_number_check_against_provision():
     ok, bad = check_numbers("Trong vòng 15 ngày (15일 이내). Không phải 14 ngày.", src)[:2]
     assert ok.status == "verified" and ok.provision_id == "출입국관리법:J36"
     assert bad.status == "not_found" and bad.missing == [14]
+
+
+def test_same_number_in_different_unit_is_not_verified():
+    [result] = check_numbers("15 ngày", [("예시법:J1", "15개월")])
+    assert result.status == "not_found" and result.missing == [15]

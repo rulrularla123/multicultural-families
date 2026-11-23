@@ -95,6 +95,9 @@ async def get_provision(id: str = Query(..., examples=["출입국관리법:J25"]
 
 @router.get("/related", response_model=list[RelatedOut])
 async def related(id: str = Query(...), session: AsyncSession = Depends(get_session)):
+    exists = await session.scalar(text("SELECT 1 FROM provisions WHERE id = :id"), {"id": id})
+    if exists is None:
+        raise HTTPException(404, "Provision not found.")
     rows = (await session.execute(RELATED_SQL, {"id": id})).all()
     seen, out_rows = set(), []
     for r in rows:

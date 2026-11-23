@@ -19,3 +19,12 @@ def test_check_citation():
     assert check_citation("출입국관리법:J25:H1", "연장허가를 받아야 한다", info).ok
     assert check_citation("출입국관리법:J25:H1", "없는 문장", info).reason
     assert not check_citation("없는:J1", "x", None).ok
+
+
+def test_exact_quote_from_ineffective_provision_is_rejected():
+    info = ProvisionInfo("예시법:J1", TEXT, "예시법:J1", TEXT, False)
+    assert not check_citation(info.id, TEXT, info).ok
+
+
+def test_ellipsis_cannot_reverse_order_of_source_words():
+    assert not quote_in_text("연장허가를 받아야 한다 … 체류기간이 끝나기 전에", TEXT)

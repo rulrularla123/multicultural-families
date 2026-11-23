@@ -46,7 +46,7 @@
 
 | 요청 | 하는 일 | 응답 | 상태 |
 | --- | --- | --- | --- |
-| `POST /api/v1/documents` multipart `file`, `lang` | 업로드, 추출, 마스킹, 서류 파악, 질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
+| `POST /api/v1/documents` JSON `{text, format, file_size, page_count, lang}` | 추출 텍스트를 다시 마스킹하고 서류 파악·질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
 | `GET /api/v1/documents` | 내 분석 건 목록 (최신순) | `[{id, created_at, filename, status, title, doc_type_label}]` | 없음 |
 | `GET /api/v1/documents/{id}` | 상세 | `Analysis` | 없음 |
 | `POST /api/v1/documents/{id}/answers` JSON `{answers: [{question_id, option_id?, text?}]}` | 답변 저장, 분석 시작 | 202 `Analysis` | `questions`·`failed` → `analyzing` |
@@ -62,8 +62,10 @@
 - `facts`는 현재 상세 응답에 포함되지만 별도 수정 API는 없다. UI 기능 추가를 이번 문서 변경에서 확정하지 않는다.
 - 분석은 백그라운드로 돈다. 화면은 `GET /documents/{id}`를 2초마다 불러 `status`·`stage`를 본다.
 
+브라우저가 최대 10MB의 PDF·DOCX에서 글자를 읽고 번호를 가린다. `text`는 최대 80,000자이며, 쪽 경계는 폼피드(`\f`)로 표시한다. `format`은 `pdf` 또는 `docx`이며 원본 파일과 이름은 보내지 않는다.
+
 실패
-- 업로드: 415 PDF·DOCX 아님, 413 10MB 초과, 422 글자 추출 실패(스캔·이미지 PDF)
+- 업로드: 415 지원하지 않는 형식 또는 JSON이 아닌 요청, 413 크기 제한 초과, 422 글자 추출 실패 또는 잘못된 요청
 - 답변: 422 필수 질문 빠짐 (`{detail, missing_question_ids}`), 409 상태가 맞지 않음
 - 체크리스트: 422 없는 번호, 409 `review`·`done`이 아님
 - 취소: `uploaded`·`questions`·`analyzing`·`review`에서만 가능. `failed`·`done`·`canceled`는 409

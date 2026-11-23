@@ -4,10 +4,13 @@
 기존 test_documents_api.py가 다루는 정상 흐름은 반복하지 않고, 실패·경계·권한 경로를 채운다.
 LLM은 conftest의 LLM_FAKE를 쓰고, 실패는 테스트 안에서 분석 함수를 바꿔 재현한다.
 """
+import asyncio
 import io
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 from fastapi import FastAPI
@@ -154,6 +157,20 @@ def _reviewed(c):
 
 
 @pytest.mark.db
+def test_us03_exactly_10mb_upload_creates_analysis(client):
+    data = text_pdf(size=10_485_760)
+    response = client.post("/api/v1/documents", headers=H,
+                           json=document_payload("boundary.pdf", PDF, data, "ko"))
+
+    assert response.status_code == 201, response.text
+    analysis = response.json()
+    assert analysis["file_size"] == len(data) == 10_485_760
+    assert analysis["status"] == "questions"
+    assert 3 <= len(analysis["intake"]["questions"]) <= 5
+    assert analysis["id"] in _ids(client)
+
+
+@pytest.mark.db
 @pytest.mark.parametrize("format, file_size, content, status", [
     ("txt", 100, "hello" * 20, 415),
     ("pdf", MAX_BYTES + 1, "hello" * 20, 413),
@@ -283,18 +300,56 @@ def test_us06_list_is_newest_first_and_only_mine(client):
     first = _sample(client)["id"]
     second = _sample(client)["id"]
     other = _sample(client, headers=H_OTHER)["id"]
-    ids = _ids(client)
-    assert ids.index(second) < ids.index(first)
-    assert other not in ids
+    response = client.get("/api/v1/documents", headers=H)
+    assert response.status_code == 200
+    items = response.json()
+    assert [item["id"] for item in items if item["id"] in {first, second, other}] == [second, first]
+    times = [item["created_at"] for item in items]
+    assert times == sorted(times, reverse=True)
+    assert all(item["status"] == "questions" and item["doc_type_label"]
+               for item in items if item["id"] in {first, second})
 
 
 @pytest.mark.db
-def test_us06_other_client_cannot_cancel_or_delete(client):
-    """US-06 (실패): 다른 익명 ID의 건은 취소·삭제가 안 된다(404). 원래 건은 그대로다."""
+def test_us06_other_client_cannot_read_cancel_or_delete(client):
     a = _sample(client)
+    assert client.get(f"/api/v1/documents/{a['id']}", headers=H_OTHER).status_code == 404
     assert client.post(f"/api/v1/documents/{a['id']}/cancel", headers=H_OTHER).status_code == 404
     assert client.delete(f"/api/v1/documents/{a['id']}", headers=H_OTHER).status_code == 404
     assert client.get(f"/api/v1/documents/{a['id']}", headers=H).json()["status"] == "questions"
+
+
+@pytest.mark.db
+def test_us06_cancel_uploaded_while_waiting_for_questions(client, monkeypatch):
+    from app.services import documents as svc
+
+    original = svc.run_intake
+    started = Event()
+    resume = Event()
+
+    async def paused_intake(*args, **kwargs):
+        started.set()
+        assert await asyncio.to_thread(resume.wait, 10), "질문 생성 재개 시간이 초과됨"
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(svc, "run_intake", paused_intake)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        before = set(_ids(client))
+        upload = executor.submit(_sample, client)
+        try:
+            assert started.wait(5), "질문 생성이 시작되지 않음"
+            items = client.get("/api/v1/documents", headers=H).json()
+            pending, = [item for item in items if item["id"] not in before]
+            assert pending["status"] == "uploaded"
+            path = f"/api/v1/documents/{pending['id']}"
+            canceled = client.post(f"{path}/cancel", headers=H)
+            assert canceled.status_code == 200 and canceled.json()["status"] == "canceled"
+        finally:
+            resume.set()
+        assert upload.result(timeout=10)["status"] == "canceled"
+
+    saved = client.get(path, headers=H).json()
+    assert saved["status"] == "canceled" and saved["intake"] is None
 
 
 @pytest.mark.db
@@ -306,6 +361,10 @@ def test_us06_cancel_from_questions_and_review(client):
     b = _reviewed(client)
     r = client.post(f"/api/v1/documents/{b['id']}/cancel", headers=H)
     assert r.status_code == 200 and r.json()["status"] == "canceled"
+    assert r.json()["result"] is not None
+    assert client.delete(f"/api/v1/documents/{b['id']}", headers=H).status_code == 204
+    assert b["id"] not in _ids(client)
+    assert client.get(f"/api/v1/documents/{b['id']}", headers=H).status_code == 404
 
 
 @pytest.mark.db

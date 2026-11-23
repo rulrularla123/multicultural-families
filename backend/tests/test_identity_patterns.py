@@ -6,7 +6,9 @@ from app.common.identity_patterns import IdentityKind, find_kinds, mask
 @pytest.mark.parametrize("text, kind", [
     ("등록번호 900101-5123456", IdentityKind.REGISTRATION),
     ("9001015123456", IdentityKind.REGISTRATION),
+    ("주민등록번호 900101 - 2123456", IdentityKind.REGISTRATION),
     ("여권 M12345678", IdentityKind.PASSPORT),
+    ("여권 ab1234567", IdentityKind.PASSPORT),
     ("연락처 010-1234-5678", IdentityKind.MOBILE_PHONE),
     ("01012345678", IdentityKind.MOBILE_PHONE),
 ])
@@ -24,3 +26,13 @@ def test_mask_removes_values():
     assert n == 3
     assert "5123456" not in masked and "M12345678" not in masked and "1234" not in masked
     assert "[등록번호 가림]" in masked
+
+
+def test_mask_preserves_context_and_can_run_twice():
+    text = "2026-11-09 F-6-1: 900101-2123456 / ab1234567 / 010-1234-5678 / 010-1234-5678"
+
+    masked, count = mask(text)
+
+    assert masked == "2026-11-09 F-6-1: [등록번호 가림] / [여권번호 가림] / [전화번호 가림] / [전화번호 가림]"
+    assert count == 4
+    assert mask(masked) == (masked, 0)

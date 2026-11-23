@@ -25,7 +25,7 @@ def answer(body="조문을 확인하세요 [1].", markers=(1,)):
     } for n in markers], confidence="high", needs_expert=False, follow_up_questions=[])
 
 
-def events(monkeypatch, answers, req=None, analysis=None):
+def events(monkeypatch, answers, req=None, analysis=None, *, has_sources=True):
     seen = []
     generated = []
 
@@ -35,7 +35,7 @@ def events(monkeypatch, answers, req=None, analysis=None):
                               standalone_question=message)
 
     async def generate(question, items, lang, as_of, history, **kwargs):
-        seen.append((question, history, kwargs.get("document")))
+        seen.append((question, history, kwargs.get("document"), lang))
         item = answers[min(len(generated), len(answers) - 1)].model_copy(deep=True)
         generated.append(item)
         if kwargs.get("on_text"):
@@ -50,7 +50,7 @@ def events(monkeypatch, answers, req=None, analysis=None):
     monkeypatch.setattr(qa, "rewrite_query", rewrite)
     monkeypatch.setattr(qa, "generate_answer", generate)
     monkeypatch.setattr(qa, "_verify", verify)
-    monkeypatch.setattr(qa, "retrieve", AsyncMock(return_value=[context]))
+    monkeypatch.setattr(qa, "retrieve", AsyncMock(return_value=[context] if has_sources else []))
     monkeypatch.setattr(qa, "_finish", AsyncMock())
 
     async def run():
@@ -109,3 +109,30 @@ def test_corrected_citations_after_retry_are_published(monkeypatch):
 def test_valid_citations_do_not_request_an_extra_generation(monkeypatch):
     payload, _, generated, _ = events(monkeypatch, [answer()])
     assert len(generated) == 1 and len(payload["citations"]) == 1
+
+
+@pytest.mark.parametrize("length", [1, 1000])
+def test_question_length_boundaries_are_accepted(length):
+    assert ChatRequest(message="가" * length).message == "가" * length
+
+
+def test_question_over_maximum_length_is_rejected():
+    with pytest.raises(ValidationError):
+        ChatRequest(message="가" * 1001)
+
+
+@pytest.mark.parametrize("settings, expected", [({}, "vi"), ({"lang": "ko"}, "ko")])
+def test_screen_language_reaches_generator_and_answer_stream(monkeypatch, settings, expected):
+    req = ChatRequest(message="체류기간 연장", **settings)
+    payload, output, _, seen = events(monkeypatch, [answer()], req)
+    assert seen[-1][-1] == expected
+    stream_events = [event["event"] for event in output]
+    assert stream_events.index("delta") < stream_events.index("answer")
+    assert payload["citations"][0]["quote_ko"] == "모의 조문"
+
+
+def test_no_sources_skips_generation_and_offers_consultation(monkeypatch):
+    req = ChatRequest(message="체류기간 연장", lang="ko")
+    payload, _, generated, _ = events(monkeypatch, [], req, has_sources=False)
+    assert generated == [] and payload["citations"] == []
+    assert payload["kind"] == "no_results" and "1345" in payload["disclaimer"]

@@ -40,7 +40,7 @@
 | `GET /api/v1/provisions/related?id={provision_id}` | `[{provision_id, path, rel, direction, evidence}]`. 수집 관계는 `REFERENCES`(참조)·`GUIDES`(시행령·규칙 → 법률), 방향은 `outgoing`·`incoming` |
 | `GET /api/v1/search?q=...&lang=vi&rewrite=true` (선택: `as_of`) | `{queries_ko, domains, as_of, results: [{provision_id, path, score, source}]}`. 검색 디버그용 |
 
-실패: 404 없는 조문.
+실패: 상세·관련 조회 모두 없는 조문 ID에 404를 반환한다. 존재하지만 연결된 조문이 없으면 관련 조회는 빈 목록을 반환한다.
 
 ## 3. 서류 분석 (F-03~F-07 / US-03~US-06)
 

@@ -4,6 +4,7 @@ import { useApp } from '../AppContext'
 import { getProvision, getRelatedProvisions } from '../api/provisions'
 import type { ProvisionDetail, RelatedProvision } from '../api/types'
 import { ErrorBox, Loading } from '../components/States'
+import LegalTranslation from '../components/LegalTranslation'
 
 export default function Provision({ id }: { id: string }) {
   const { lang, t, navigate, back, canGoBack } = useApp()
@@ -57,7 +58,14 @@ export default function Provision({ id }: { id: string }) {
             </span>
           </div>
 
-          {summary && <div className="card">{summary}</div>}
+          {(lang === 'vi' || summary) && (
+            <div className="card">
+              <strong>{t('provision.summary')}</strong>
+              {lang === 'vi' ? (
+                <LegalTranslation text={summary} status={provision.summary_translation_status} />
+              ) : <p>{summary}</p>}
+            </div>
+          )}
 
           <div className="provision-text">{provision.full_text_ko}</div>
 

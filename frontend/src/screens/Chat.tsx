@@ -119,7 +119,6 @@ export default function Chat({ analysisId, initialQuestion }: { analysisId?: str
             <p>
               <strong>{t('chat.empty.title')}</strong>
             </p>
-            <p>{t('chat.empty.desc')}</p>
             <div className="chat-suggested">
               {SUGGESTED_KEYS.map((k) => (
                 <button key={k} onClick={() => void send(t(k))}>

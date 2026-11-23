@@ -26,7 +26,7 @@
 | | `path` TEXT, `ordinal` INT | 표시 경로(제3장 > 제25조), 순서 | F-02 |
 | | `effective_from`, `effective_to` DATE NULL | 조문 단위 시행·폐지일 | F-01 |
 | Chunk (`chunks`) | `id` PK, `provision_id` FK, `jo_id`, `document_id` | 검색 단위 | F-01 |
-| | `kind` TEXT, `lang` TEXT | `original`(원문) · `summary`(쉬운 요약), `ko` · `vi` | F-01 |
+| | `kind` TEXT, `lang` TEXT | `original`(한국어 원문) · `summary`(한국어 쉬운 요약) · `azure_translated_summary`(NMT로 번역한 베트남어 요약). 기존 `summary`·`vi`는 표시·검색·신규 임베딩에서 제외한다 | F-01 |
 | | `content` TEXT, `tokens` TEXT NULL | 내용, 한국어 토큰화 결과 | F-01 |
 | | `tsv` TSVECTOR (계산 열) | 전문 검색 | F-01 |
 | | `embedding` VECTOR(1536) NULL | 임베딩 | F-01 |

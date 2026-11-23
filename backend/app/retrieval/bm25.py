@@ -29,6 +29,7 @@ ROWS_SQL = text(
     FROM chunks c
     JOIN provisions p ON p.id = c.provision_id
     JOIN legal_documents d ON d.id = c.document_id
+    WHERE c.lang <> 'vi' OR c.kind = 'azure_translated_summary'
     """
 )
 SIGNATURE_SQL = text("SELECT count(*), coalesce(max(id), 0) FROM chunks")

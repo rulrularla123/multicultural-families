@@ -1,4 +1,5 @@
-from app.retrieval.pipeline import MAX_SANCTION, ContextItem, add_sanctions
+from app.retrieval.graph import GraphHit
+from app.retrieval.pipeline import MAX_SANCTION, ContextItem, _select, add_sanctions
 
 LAW = "출입국관리법"
 
@@ -23,3 +24,22 @@ def test_sanction_limit_and_no_duplicates():
     ids = [i.provision_id for i in out]
     assert ids.count(f"{LAW}:J98") == 1
     assert len(ids) == 2 + MAX_SANCTION
+
+
+def test_select_prefers_guides_to_higher_scored_reference():
+    seed, guide, ref = item(f"{LAW}:J25", 1.0), item(f"{LAW}:J26", 0.2), item(f"{LAW}:J27", 0.9)
+    hits = {
+        guide.provision_id: GraphHit(guide.provision_id, guide.score, "위임 근거", rel="GUIDES"),
+        ref.provision_id: GraphHit(ref.provision_id, ref.score, "참조 근거", rel="REFERENCES"),
+    }
+
+    assert _select([ref, guide, seed], hits, {seed.provision_id}, context_k=2, graph_slots=1) == [seed, guide]
+    assert guide.source == "graph: 위임 근거"
+
+
+def test_select_backfills_unused_graph_slots_without_duplicate_seed():
+    first, second, third = [item(f"{LAW}:J{n}", 1 / n) for n in (25, 26, 27)]
+    hits = {first.provision_id: GraphHit(first.provision_id, first.score, "참조 근거", rel="REFERENCES")}
+    items = [third, second, first]
+
+    assert _select(items, hits, {i.provision_id for i in items}, context_k=3, graph_slots=2) == [first, second, third]

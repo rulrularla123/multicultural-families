@@ -1,3 +1,9 @@
+from datetime import date
+
+import pytest
+
+from ingest import loader
+from ingest.chunker import MAX_CHARS, chunk_document
 from ingest.loader import load_file
 from ingest.parsers.structure import parse_law
 
@@ -72,3 +78,36 @@ def test_all_loaded_laws_parse(laws_dir):
         doc = parse_law(raw.text, raw.id, raw.meta["title_ko"])
         assert doc.jos(), path
         assert raw.meta["status"] == "in_force", path
+
+
+def test_search_chunks_split_long_article_by_paragraph_and_exclude_deleted_article():
+    sample = SAMPLE.replace("첫째 항이다.", "체류기간 연장 " * (MAX_CHARS // 12))
+    sample = sample.replace("다음 각 호의", "신고 의무 " * (MAX_CHARS // 12) + "다음 각 호의")
+    doc = parse_law(sample, "예시법", "예시법")
+
+    chunks = chunk_document(doc)
+
+    assert [(c.jo_id, c.provision_id) for c in chunks] == [
+        ("예시법:J1", "예시법:J1"),
+        ("예시법:J10-2", "예시법:J10-2:H1"),
+        ("예시법:J10-2", "예시법:J10-2:H2"),
+    ]
+    assert "체류기간 연장" in chunks[1].content
+    assert "나. 둘째 목" in chunks[2].content
+    assert all(c.tokens for c in chunks)
+
+
+@pytest.mark.parametrize(("effective", "source_status", "expected"), [
+    ("2026-01-01", "현행", "in_force"),
+    ("2026-01-02", "현행", "not_yet"),
+    ("2025-01-01", "폐지", "repealed"),
+])
+def test_document_status_on_effective_date(tmp_path, monkeypatch, effective, source_status, expected):
+    monkeypatch.setattr(loader, "today_kr", lambda: date(2026, 1, 1))
+    path = tmp_path / "법률.md"
+    path.write_text(f"---\n제목: 예시법\n시행일자: {effective}\n상태: {source_status}\n---\n{SAMPLE}", encoding="utf-8")
+
+    raw = load_file(path)
+
+    assert raw.date("effective_from") == date.fromisoformat(effective)
+    assert raw.meta["status"] == expected

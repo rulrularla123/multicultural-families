@@ -75,7 +75,7 @@ PROVISIONS_SQL = text(
     SELECT p.id, p.path, p.full_text_ko, p.effective_from, p.effective_to,
            d.id AS document_id, d.title_ko, d.title_vi, d.doc_type, d.status,
            (SELECT c.content FROM chunks c
-             WHERE c.jo_id = p.id AND c.kind = 'summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi
+             WHERE c.jo_id = p.id AND c.kind = 'azure_translated_summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi
     FROM provisions p JOIN legal_documents d ON d.id = p.document_id
     WHERE p.id = ANY(:ids)
     """

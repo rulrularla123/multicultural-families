@@ -3,7 +3,7 @@
   python -m ingest fetch [법령 …]                  # legalize-kr에서 법령 마크다운 받기 (기본: 체류 관련 4개 법령)
   python -m ingest check data/laws                 # DB 없이 파싱·관계 추출 결과만 확인
   python -m ingest load data/laws [--samples]      # 문서·조문·청크 적재 + 관계 재구성
-  python -m ingest summarize --lang vi             # 조별 쉬운 요약 청크 생성 (+ 이후 embed)
+  python -m ingest summarize --lang vi             # 한국어 요약 → NMT 베트남어 번역 (+ 이후 embed)
   python -m ingest embed                           # 임베딩이 없는 청크 임베딩
   python -m ingest all data/laws [--samples]       # load → summarize(vi) → embed
   python -m ingest review <문서ID> --by 이름 [--note 메모] [--unset]  # 사람 검토 기록

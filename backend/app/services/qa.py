@@ -24,6 +24,7 @@ from app.generation.verify import ProvisionInfo, check_citation, lookup
 from app.retrieval.pipeline import ContextItem, retrieve
 from app.retrieval.rewrite import resolve_as_of, rewrite_query
 from app.schemas.chat import AnswerPayload, ChatRequest, CitationOut, NumberCheckOut, SourceOut, UsageOut
+from app.translation import Translation, translate_texts
 
 log = logging.getLogger(__name__)
 
@@ -180,6 +181,8 @@ async def _answer_stream(
         ans.confidence = {"high": "medium", "medium": "low"}.get(ans.confidence, "low")
 
     context_by_id = {i.provision_id: i for i in items}
+    translations = await translate_texts([c.quote_ko for c, chk in pairs if chk.ok], lang)
+    translated = iter(translations)
     payload = AnswerPayload(
         lang=lang,
         as_of=as_of,
@@ -189,7 +192,7 @@ async def _answer_stream(
                 index=n + 1,
                 provision_id=chk.corrected_id or c.provision_id,
                 quote_ko=c.quote_ko,
-                quote_translation=c.quote_translation,
+                **(next(translated) if chk.ok else Translation(status="not_verified")).citation_fields(),
                 verified=chk.ok,
                 verify_error=chk.reason,
                 version_warning=_version_warning(infos, chk.corrected_id or c.provision_id, c.provision_id),

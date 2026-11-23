@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.lang import Lang
+from app.translation import TranslationStatus
 
 
 class ChatMessage(BaseModel):
@@ -37,6 +38,8 @@ class CitationOut(BaseModel):
     provision_id: str
     quote_ko: str
     quote_translation: str
+    translation_status: TranslationStatus = "unavailable"
+    translation_provider: str | None = None
     verified: bool
     verify_error: str | None
     # 근거 법령 판: outdated(더 새로운 판이 시행 중) · unchecked(최신 판 확인 안 됨·오래됨) · None(최신 판 확인됨)

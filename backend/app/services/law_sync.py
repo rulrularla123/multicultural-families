@@ -78,7 +78,8 @@ async def run_if_due(now: datetime | None = None) -> bool:
     now = now or datetime.now(UTC)
     async with SessionLocal() as session:
         last, has_docs, pending = (await session.execute(text(
-            "SELECT min(version_checked_at), count(*), count(*) FILTER (WHERE needs_reindex) "
+            "SELECT CASE WHEN count(version_checked_at) = count(*) THEN min(version_checked_at) END, "
+            "count(*), count(*) FILTER (WHERE needs_reindex) "
             "FROM legal_documents WHERE NOT is_sample"
         ))).one()
     if not has_docs or settings.law_sync_interval_hours <= 0:

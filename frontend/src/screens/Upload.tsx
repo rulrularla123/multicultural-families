@@ -5,8 +5,6 @@ import { ApiError } from '../api/client'
 import { uploadDocument } from '../api/documents'
 import { ErrorBox } from '../components/States'
 
-const MAX_SIZE = 10 * 1024 * 1024
-
 export default function Upload() {
   const { lang, t, navigate } = useApp()
   const [dragging, setDragging] = useState(false)
@@ -24,11 +22,8 @@ export default function Upload() {
   }
 
   async function handleFile(file: File) {
+    if (busy) return
     setError(null)
-    if (file.size > MAX_SIZE) {
-      setError(t('upload.error.size'))
-      return
-    }
     setBusy(true)
     try {
       const analysis = await uploadDocument(file, lang)
@@ -44,7 +39,6 @@ export default function Upload() {
     <div className="stack">
       <Steps current={1} />
       <h1 className="page-title">{t('upload.title')}</h1>
-      <p className="page-desc">{t('upload.desc')}</p>
       <p className="upload-notice">{t('upload.privacyNotice')}</p>
 
       {error && <ErrorBox message={error} />}
@@ -67,6 +61,7 @@ export default function Upload() {
         tabIndex={0}
       >
         <p>{busy ? t('upload.uploading') : t('upload.dragHint')}</p>
+        <small className="upload-dropzone__meta">{t('dash.cta.formats')}</small>
         <button
           className="btn"
           type="button"

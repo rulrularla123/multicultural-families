@@ -32,7 +32,7 @@
 | | `path` TEXT, `ordinal` INT | 표시 경로(제3장 > 제25조), 순서 | F-02 |
 | | `effective_from`, `effective_to` DATE NULL | 조문 단위 시행·폐지일 | F-01 |
 | Chunk (`chunks`) | `id` PK, `provision_id` FK, `jo_id`, `document_id` | 검색 단위 | F-01 |
-| | `kind` TEXT, `lang` TEXT | `original`(원문) · `summary`(쉬운 요약), `ko` · `vi` | F-01 |
+| | `kind` TEXT, `lang` TEXT | `original`(한국어 원문) · `summary`(한국어 쉬운 요약) · `azure_translated_summary`(NMT로 번역한 베트남어 요약). 기존 `summary`·`vi`는 표시·검색·신규 임베딩에서 제외한다 | F-01 |
 | | `content` TEXT, `tokens` TEXT NULL | 내용, 한국어 토큰화 결과 | F-01 |
 | | `tsv` TSVECTOR (계산 열) | 전문 검색 | F-01 |
 | | `embedding` VECTOR(1536) NULL | 임베딩 | F-01 |
@@ -50,7 +50,7 @@
 | | `client_id` TEXT, 인덱스 | 브라우저 익명 ID. 다른 ID의 건은 보이지 않는다 | F-07 |
 | | `created_at`, `updated_at` TIMESTAMPTZ | 올린 일시, 바뀐 일시 | F-07 |
 | | `lang` TEXT | 결과 언어 `vi` · `ko` | F-09 |
-| | `filename`, `mime` TEXT, `file_size` INT, `page_count` INT NULL | 파일 정보. 원본 파일은 저장하지 않는다 | F-03 |
+| | `filename`, `mime` TEXT, `file_size` INT, `page_count` INT NULL | 파일 형식·크기·쪽 수와 형식별 기본 파일명. 원본 파일과 파일명은 받지 않는다 | F-03 |
 | | `text` TEXT | 마스킹한 추출 텍스트. 쪽 경계는 폼피드(`\f`) | F-03, F-05 |
 | | `masked_count` INT | 마스킹한 식별정보 개수 (값은 저장하지 않음) | F-03 |
 | | `status` TEXT | 아래 상태값 | 전체 |
@@ -68,7 +68,7 @@
 
 | 상태값 | 화면 표시 | 누가 바꾸나 | 언제 |
 | --- | --- | --- | --- |
-| `uploaded` | 업로드됨 | 서버 | 유효한 파일을 받아 추출·마스킹을 끝냄 |
+| `uploaded` | 업로드됨 | 서버 | 브라우저에서 추출·마스킹한 텍스트를 받아 서버에서 다시 마스킹함 |
 | `questions` | 질문 대기 | 서버 | 서류 종류·요약·개인화 질문 생성 완료 |
 | `analyzing` | 분석중 | 사용자 요청 → 서버 | 필수 질문에 모두 답하고 분석 시작 |
 | `failed` | 분석 실패 | 서버 | LLM 오류·시간 초과·형식 오류. 다시 시도하면 `analyzing` |
@@ -83,7 +83,7 @@
 
 | 데이터 | 이유 |
 | --- | --- |
-| 식별정보 패턴(외국인등록번호, 주민등록번호, 여권번호, 휴대전화번호) | 추출 직후 마스킹해서 저장하고, 마스킹한 텍스트만 보낸다 |
+| 식별정보 패턴(외국인등록번호, 주민등록번호, 여권번호, 휴대전화번호) | 브라우저에서 추출 직후 마스킹하고, 서버에서도 다시 가린 뒤 저장하고 LLM에 보낸다 |
 | 원본 파일 | 저장하지도 보내지도 않는다 |
 | `client_id`, 분석 건 ID, `job_id` | 분석에 필요 없다 |
 

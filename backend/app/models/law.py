@@ -84,7 +84,7 @@ class Chunk(Base):
     provision_id: Mapped[str] = mapped_column(ForeignKey("provisions.id", ondelete="CASCADE"))
     jo_id: Mapped[str] = mapped_column(Text, index=True)
     document_id: Mapped[str] = mapped_column(ForeignKey("legal_documents.id", ondelete="CASCADE"))
-    kind: Mapped[str] = mapped_column(Text)                             # original | summary
+    kind: Mapped[str] = mapped_column(Text)                             # original | summary(ko) | azure_translated_summary(vi, NMT)
     lang: Mapped[str] = mapped_column(Text)                             # vi | ko
     content: Mapped[str] = mapped_column(Text)
     tokens: Mapped[str | None] = mapped_column(Text)                    # 검색 토큰 (한글 2-gram + 어절)

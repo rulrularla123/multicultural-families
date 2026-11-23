@@ -85,7 +85,7 @@ npm run dev
 
 화면은 `http://localhost:5173`, 서버 상태는 `http://127.0.0.1:8000/health`입니다. DB는 PostgreSQL 16 + pgvector이며 호스트 포트는 5433입니다. `LLM_FAKE=true`는 고정된 개발용 응답으로, 실제 AI 품질 검증과 구분합니다.
 
-실제 OpenAI 연결은 서버의 `OPENAI_API_KEY` 설정과 `LLM_FAKE` 해제 후 조문 요약·임베딩 생성이 필요합니다. 비밀 값 파일을 열거나 커밋하지 않습니다. 자세한 명령은 백엔드 안내를 따릅니다.
+실제 OpenAI 연결은 서버의 `OPENAI_API_KEY` 설정과 `LLM_FAKE` 해제 후 조문 요약·임베딩 생성이 필요합니다. 법령 인용·조문 요약 번역에는 별도의 `AZURE_TRANSLATOR_KEY`를 서버에 설정합니다. 번역은 Azure Translator NMT API, 설명 생성은 LLM이 담당합니다. 비밀 값 파일을 열거나 커밋하지 않습니다. 자세한 설정·명령은 백엔드 안내를 따릅니다.
 
 ## 작업 규칙
 

@@ -144,6 +144,7 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
     from sqlalchemy.pool import NullPool
 
     from app.core.config import get_settings
+    from app.translation import Translation
     from ingest import pipeline
     from ingest.loader import discover
     from ingest.sources import legalize_kr
@@ -175,6 +176,12 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
         calls["embedded"] += len(texts)
         return [[0.0] * 1536 for _ in texts]
 
+    async def fake_translate(texts, lang):
+        assert lang == "vi" and texts == ["요약"] * len(texts)
+        return [Translation("Bản tóm tắt", "translated") for _ in texts]
+
+    monkeypatch.setattr(pipeline, "translate_texts", fake_translate)
+    monkeypatch.setattr(pipeline, "require_translation", lambda: None)
     monkeypatch.setattr(legalize_kr, "fetch", fake_fetch)
     monkeypatch.setattr(pipeline, "check_versions", fake_check)
     monkeypatch.setattr(pipeline, "complete", fake_complete)
@@ -197,7 +204,7 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
                 # 요약 언어는 다른 법령에 있는 언어를 따른다: 다른 법령에 vi 요약 표식 하나를 둔다
                 await s.execute(text(
                     "INSERT INTO chunks (provision_id, jo_id, document_id, kind, lang, content, domains) "
-                    "SELECT id, id, document_id, 'summary', 'vi', 'sync-test-marker', '{}' FROM provisions "
+                    "SELECT id, id, document_id, 'azure_translated_summary', 'vi', 'sync-test-marker', '{}' FROM provisions "
                     "WHERE document_id <> :d AND level = 'jo' LIMIT 1"), {"d": doc_id})
                 await s.commit()
                 other_before.update(dict((await s.execute(text(
@@ -221,7 +228,7 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
                 emb = (await s.execute(text(
                     "SELECT count(*), count(embedding) FROM chunks WHERE document_id = :d"), {"d": doc_id})).one()
                 summaries = (await s.execute(text(
-                    "SELECT content FROM chunks WHERE document_id = :d AND kind = 'summary'"), {"d": doc_id}
+                    "SELECT content FROM chunks WHERE document_id = :d AND kind = 'azure_translated_summary'"), {"d": doc_id}
                 )).scalars().all()
                 other_after = dict((await s.execute(text(
                     "SELECT document_id, count(embedding) FROM chunks WHERE document_id <> :d GROUP BY 1"
@@ -244,7 +251,7 @@ def test_sync_reloads_only_changed_law_and_reembeds(tmp_path, monkeypatch):
     assert report["changed"] == [] and report["reindexed"] == [doc_id] and report["after_flag"] is False
     assert "30일" in text_                                  # 새 판 원문으로 바뀜
     assert emb[0] == emb[1] and calls["embedded"] == emb[0]  # 이 법령 청크만 모두 새로 임베딩
-    assert summaries and all(s.endswith("요약") for s in summaries)
+    assert summaries and all(s.endswith("Bản tóm tắt") for s in summaries)
     assert other_after == other_before                      # 다른 법령은 건드리지 않음
 
 

@@ -30,7 +30,6 @@ export default function MyDocuments() {
   return (
     <div>
       <PageHeader
-        eyebrow={t('myDocuments.eyebrow')}
         title={
           <>
             {t('myDocuments.title')} {items && <span style={{ color: 'var(--faint)' }}>{items.length}</span>}

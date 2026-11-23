@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://legal:legal@localhost:5433/legal"
 
     openai_api_key: str = ""
+    # 공개 법령 인용·한국어 요약의 번역 전용. 브라우저로 전달하지 않는다.
+    azure_translator_key: str = ""  # Azure에서 F0 단일 서비스 리소스를 생성한다
+    azure_translator_region: str = ""  # global 리소스는 생략, regional 리소스는 해당 리전
+    translation_timeout_seconds: float = 10.0
     # 모델명은 환경변수로 교체한다. fast 모델은 질의 재작성·조문 요약에 사용.
     openai_chat_model: str = "gpt-5"
     openai_fast_model: str = "gpt-5-mini"

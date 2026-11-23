@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useApp } from '../AppContext'
 import { setChecklistItem } from '../api/documents'
 import type { Analysis, Clause } from '../api/types'
+import LegalTranslation from '../components/LegalTranslation'
 
 const CATEGORY_ORDER: Clause['category'][] = ['must_check', 'caution', 'general']
 
@@ -99,19 +100,22 @@ export default function Result({ analysis, onChanged }: { analysis: Analysis; on
                     <div className="clause-card__detail">
                       <p>{clause.explanation_detail}</p>
                       {clause.citations.map((c, i) => (
-                        <button
-                          key={i}
-                          className="citation-card__link"
-                          style={{ display: 'block', marginTop: 4 }}
-                          onClick={() => navigate({ name: 'provision', id: c.provision_id })}
-                        >
-                          {c.provision_id} <ArrowUpRight size={13} aria-hidden />
+                        <div key={i} style={{ marginTop: 8 }}>
+                          <button
+                            className="citation-card__link"
+                            onClick={() => navigate({ name: 'provision', id: c.provision_id })}
+                          >
+                            {c.provision_id} <ArrowUpRight size={13} aria-hidden />
                           {c.version_warning && (
                             <span className="badge badge--caution" style={{ marginLeft: 6 }}>
                               {t(`version.${c.version_warning}`)}
                             </span>
                           )}
-                        </button>
+
+                          </button>
+                          <p style={{ margin: '4px 0' }}>{c.quote_ko}</p>
+                          <LegalTranslation text={c.quote_translation} status={c.translation_status} />
+                        </div>
                       ))}
                     </div>
                   </details>

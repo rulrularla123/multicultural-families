@@ -22,7 +22,7 @@
 | --- | --- |
 | 요청 | `POST /api/v1/chat/stream` JSON `{message, lang?, history?, session_id?, analysis_id?, as_of?}` (`message` 1~1,000자, `history` 최대 20개 `{role, content}`). `analysis_id`는 본인 서류에 대한 후속 질문, `as_of`는 기준일 |
 | 응답 | SSE `stage`(`{stage, label}`) → `delta`(`{text}`)… → 선택적 `reset`(`{}`, 기존 임시 답변 지움) → `answer`(최종 JSON). 오류는 `error`(`{message}`). 근거·검증 결과는 `answer`에 포함 |
-| 근거 항목 | `{index, provision_id, quote_ko, quote_translation, verified, verify_error}`. `verified=false`면 화면에 "원문 확인 필요" |
+| 근거 항목 | `{index, provision_id, quote_ko, quote_translation, translation_status, translation_provider, verified, verify_error}`. `verified=false`면 화면에 "원문 확인 필요" |
 | 동기 버전 | `POST /api/v1/chat` 같은 입력, 응답 `AnswerPayload`(아래 필드) (테스트·디버그용) |
 | 실패 | 422 입력 형식·길이 오류·공백만 있는 질문. 서류 후속 질문은 헤더 없음 400, 본인 건 아님 404. 스트림 시작 뒤 오류는 HTTP 상태 대신 SSE `error`로 전달 |
 
@@ -32,11 +32,13 @@
 
 현재 질문·이전 대화·서류 후속 질문 맥락의 식별정보 패턴은 질의 재작성·검색·답변 생성 전에 마스킹한다. 본문 인용 번호와 근거 목록의 연결이 누락되거나 모호하면 한 번 재생성한다. 그래도 연결하지 못하면 해당 법적 주장 대신 근거 확인 실패 안내를 반환한다(`confidence=low`, `needs_expert=true`).
 
+법령 인용 번역은 검증된 `quote_ko`를 NMT API로 번역한 결과다. `translation_status`는 `translated`·`original`·`unavailable`·`not_verified`·`development`이며 실제 API 제공자는 `azure_translator`다. 키 미설정·번역 실패 시 `quote_translation`은 빈 문자열이다. `verified`는 한국어 원문 검증이며 번역 정확도 보증이 아니다. 서류 분석의 인용도 같은 번역 필드를 포함한다. [번역 기준](decisions/law-translation-2026-11-17.md).
+
 ## 2. 조문 보기 (F-02 / US-02)
 
 | 요청 | 응답 |
 | --- | --- |
-| `GET /api/v1/provisions?id={provision_id}` | `{id, document_id, document_title, doc_type, level, number_label, path, full_text_ko, summary_vi, summary_ko, effective, effective_from, effective_to, status, source_url, reviewed, reviewed_by, reviewed_at, law_mst, issued_date, promulgation_no, version_url, official_url, loaded_at, version_status, version_checked_at, version_checked_source, upcoming_effective_from, version_warning}`. `version_url`은 적재한 판의 국가법령정보센터 원문, `official_url`은 지금 시행 중인 판의 해당 조 링크 |
+| `GET /api/v1/provisions?id={provision_id}` | `{id, document_id, document_title, doc_type, level, number_label, path, full_text_ko, summary_vi, summary_ko, summary_translation_status, summary_translation_provider, effective, effective_from, effective_to, status, source_url, reviewed, reviewed_by, reviewed_at, law_mst, issued_date, promulgation_no, version_url, official_url, loaded_at, version_status, version_checked_at, version_checked_source, upcoming_effective_from, version_warning}`. `version_url`은 적재한 판의 국가법령정보센터 원문, `official_url`은 지금 시행 중인 판의 해당 조 링크 |
 | `GET /api/v1/provisions/related?id={provision_id}` | `[{provision_id, path, rel, direction, evidence}]`. 수집 관계는 `REFERENCES`(참조)·`GUIDES`(시행령·규칙 → 법률), 방향은 `outgoing`·`incoming` |
 | `GET /api/v1/search?q=...&lang=vi&rewrite=true` (선택: `as_of`) | `{queries_ko, domains, as_of, results: [{provision_id, path, score, source}]}`. 검색 디버그용 |
 
@@ -46,7 +48,7 @@
 
 | 요청 | 하는 일 | 응답 | 상태 |
 | --- | --- | --- | --- |
-| `POST /api/v1/documents` multipart `file`, `lang` | 업로드, 추출, 마스킹, 서류 파악, 질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
+| `POST /api/v1/documents` JSON `{text, format, file_size, page_count, lang}` | 추출 텍스트를 다시 마스킹하고 서류 파악·질문 생성 | 201 `Analysis` | (시작) → `uploaded` → `questions` |
 | `GET /api/v1/documents` | 내 분석 건 목록 (최신순) | `[{id, created_at, filename, status, title, doc_type_label}]` | 없음 |
 | `GET /api/v1/documents/{id}` | 상세 | `Analysis` | 없음 |
 | `POST /api/v1/documents/{id}/answers` JSON `{answers: [{question_id, option_id?, text?}]}` | 답변 저장, 분석 시작 | 202 `Analysis` | `questions`·`failed` → `analyzing` |
@@ -62,8 +64,10 @@
 - `facts`는 현재 상세 응답에 포함되지만 별도 수정 API는 없다. UI 기능 추가를 이번 문서 변경에서 확정하지 않는다.
 - 분석은 백그라운드로 돈다. 화면은 `GET /documents/{id}`를 2초마다 불러 `status`·`stage`를 본다.
 
+브라우저가 최대 10MB의 PDF·DOCX에서 글자를 읽고 번호를 가린다. `text`는 최대 80,000자이며, 쪽 경계는 폼피드(`\f`)로 표시한다. `format`은 `pdf` 또는 `docx`이며 원본 파일과 이름은 보내지 않는다.
+
 실패
-- 업로드: 415 PDF·DOCX 아님, 413 10MB 초과, 422 글자 추출 실패(스캔·이미지 PDF)
+- 업로드: 415 지원하지 않는 형식 또는 JSON이 아닌 요청, 413 크기 제한 초과, 422 글자 추출 실패 또는 잘못된 요청
 - 답변: 422 필수 질문 빠짐 (`{detail, missing_question_ids}`), 409 상태가 맞지 않음
 - 체크리스트: 422 없는 번호, 409 `review`·`done`이 아님
 - 취소: `uploaded`·`questions`·`analyzing`·`review`에서만 가능. `failed`·`done`·`canceled`는 409

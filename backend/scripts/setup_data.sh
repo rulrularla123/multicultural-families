@@ -13,8 +13,13 @@ echo "▶ 법령 적재·관계 그래프"
 $PY -m ingest load
 
 if [ "${LLM_FAKE:-false}" != "true" ] && [ -n "${OPENAI_API_KEY:-}" ]; then
-  echo "▶ 조문별 베트남어 요약 + 임베딩 (OpenAI API 사용)"
-  $PY -m ingest summarize --lang vi
+  if [ -n "${AZURE_TRANSLATOR_KEY:-}" ]; then
+    echo "▶ 한국어 요약(OpenAI) → 베트남어 번역(Azure Translator NMT) + 임베딩"
+    $PY -m ingest summarize --lang vi
+  else
+    echo "▶ AZURE_TRANSLATOR_KEY가 없어 한국어 요약·임베딩만 생성"
+    $PY -m ingest summarize --lang ko
+  fi
 else
   echo "⚠ OPENAI_API_KEY가 환경변수에 없거나 LLM_FAKE=true라 요약·임베딩을 건너뜀"
   echo "  가짜 임베딩으로 벡터 검색 경로만 확인하려면: LLM_FAKE=true $PY -m ingest embed"

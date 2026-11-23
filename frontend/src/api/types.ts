@@ -1,4 +1,5 @@
 export type Lang = 'vi' | 'ko'
+export type TranslationStatus = 'translated' | 'original' | 'unavailable' | 'not_verified' | 'development'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -10,9 +11,16 @@ export interface Citation {
   provision_id: string
   quote_ko: string
   quote_translation: string
+  translation_status?: TranslationStatus
+  translation_provider?: string | null
   verified: boolean
   verify_error: string | null
+  version_warning?: VersionWarning | null
 }
+
+/** 근거 법령 판: outdated(더 새로운 판이 시행 중) · unchecked(최신 판 확인 안 됨·오래됨) */
+export type VersionWarning = 'outdated' | 'unchecked'
+export type VersionStatus = 'current' | 'upcoming' | 'outdated' | 'unknown'
 
 export interface SourceOut {
   provision_id: string
@@ -64,6 +72,8 @@ export interface ProvisionDetail {
   full_text_ko: string
   summary_vi: string | null
   summary_ko: string | null
+  summary_translation_status?: TranslationStatus
+  summary_translation_provider?: string | null
   effective: boolean
   effective_from: string | null
   effective_to: string | null
@@ -72,6 +82,17 @@ export interface ProvisionDetail {
   reviewed: boolean
   reviewed_by: string | null
   reviewed_at: string | null
+  law_mst?: string | null
+  issued_date?: string | null
+  promulgation_no?: string | null
+  version_url?: string | null
+  official_url?: string | null
+  loaded_at?: string | null
+  version_status?: VersionStatus
+  version_checked_at?: string | null
+  version_checked_source?: string | null
+  upcoming_effective_from?: string | null
+  version_warning?: VersionWarning | null
 }
 
 export interface RelatedProvision {
@@ -138,6 +159,9 @@ export interface ClauseCitation {
   quote_ko: string
   provision_id: string
   quote_translation: string
+  version_warning?: VersionWarning | null
+  translation_status?: TranslationStatus
+  translation_provider?: string | null
 }
 
 export interface Clause {

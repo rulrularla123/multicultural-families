@@ -2,7 +2,7 @@
 
 상태: uploaded → questions → analyzing → review ↔ done, analyzing → failed → analyzing, 진행 중 → canceled.
 - 분석 건은 브라우저 익명 ID(client_id)로 구분한다. 다른 ID의 건은 없는 건처럼 다룬다(404).
-- 업로드 직후 추출 텍스트의 식별정보를 마스킹해서 저장한다. 원본 파일은 저장하지 않는다.
+- 브라우저가 보낸 텍스트를 서버에서도 마스킹해 저장한다. 원본 파일은 받지 않는다.
 - 분석은 job_id를 붙여 돌리고, 결과를 저장할 때 job_id와 상태가 그대로일 때만 저장한다
   (취소·재시도 뒤 늦게 온 결과는 버린다).
 """
@@ -16,18 +16,19 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import llm
-from app.common.identity_patterns import mask
+from app.common.identity_patterns import PLACEHOLDER, mask
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.lang import Lang, t, today_kr
+from app.core.law_version import version_warning
 from app.documents import facts as fx
 from app.documents.analyze import DocumentAnalysis, run_analysis
-from app.documents.extract import extract_text
 from app.documents.intake import Intake, run_intake
 from app.documents.segment import Segment, segment_document
 from app.generation.answer import Citation
 from app.generation.verify import check_citation, lookup, quote_in_text
 from app.retrieval.pipeline import retrieve
+from app.translation import translate_texts
 
 log = logging.getLogger(__name__)
 STAGES = ["extracted", "searching", "analyzing", "verifying"]
@@ -61,6 +62,23 @@ def _doc_facts(intake: dict) -> list[dict]:
     return fx.initial_facts(intake.get("facts") or [])
 
 
+def _result_view(result: dict | None) -> dict | None:
+    """예전 분석에 저장된 출처 불명(LLM) 번역은 다시 노출하지 않는다. DB 원본은 보존한다."""
+    if not result:
+        return result
+    out = dict(result)
+    for key in ("clauses", "cautions"):
+        out[key] = [
+            item | {"citations": [
+                c if c.get("translation_status") in ("translated", "original", "development") else
+                c | {"quote_translation": "", "translation_status": "unavailable", "translation_provider": None}
+                for c in item.get("citations", [])
+            ]}
+            for item in result.get(key, [])
+        ]
+    return out
+
+
 def _row_view(r) -> dict:
     intake = r.intake or {}
     return {
@@ -81,7 +99,7 @@ def _row_view(r) -> dict:
                                                "questions")} if intake else None,
         "facts": fx.public(r.facts or []),
         "answers": r.answers,
-        "result": r.result,
+        "result": _result_view(r.result),
         "checklist": r.checklist,
     }
 
@@ -123,10 +141,11 @@ async def delete_analysis(session: AsyncSession, client_id: str, analysis_id: st
 
 
 async def create_analysis(
-    session: AsyncSession, client_id: str, filename: str, mime: str | None, data: bytes, lang: Lang
+    session: AsyncSession, client_id: str, filename: str, mime: str, file_size: int, page_count: int,
+    document_text: str, lang: Lang,
 ) -> dict:
-    extracted = extract_text(filename, mime, data, lang)
-    masked, masked_count = mask(extracted.text)
+    masked, _ = mask(document_text)
+    masked_count = sum(masked.count(marker) for marker in PLACEHOLDER.values())
     analysis_id = uuid.uuid4()
     await session.execute(
         text(
@@ -136,8 +155,8 @@ async def create_analysis(
             VALUES (:id, :cid, :lang, :filename, :mime, :size, :pages, :text, :masked, 'uploaded', 'extracted')
             """
         ),
-        {"id": analysis_id, "cid": client_id, "lang": lang, "filename": filename, "mime": mime, "size": len(data),
-         "pages": extracted.page_count, "text": masked, "masked": masked_count},
+        {"id": analysis_id, "cid": client_id, "lang": lang, "filename": filename, "mime": mime, "size": file_size,
+         "pages": page_count, "text": masked, "masked": masked_count},
     )
     await session.commit()
 
@@ -312,13 +331,23 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         )).all()
     ) if cits else {}
 
+    valid_quotes = list(dict.fromkeys(
+        c.quote_ko for c in cits if check_citation(c.provision_id, c.quote_ko, infos.get(c.provision_id)).ok
+    ))
+    translations = dict(zip(valid_quotes, await translate_texts(valid_quotes, lang), strict=True))
+
     def cite(c: Citation) -> dict | None:
         chk = check_citation(c.provision_id, c.quote_ko, infos.get(c.provision_id))
         if not chk.ok:
             return None  # 재생성 후에도 검증에 실패한 인용은 보여주지 않는다
         pid = chk.corrected_id or c.provision_id
+        info = infos[c.provision_id]
+        warning = version_warning(info.version_status, info.version_checked_at)
+        warnings.add(warning)
         return {"provision_id": pid, "path": paths.get(pid, pid), "quote_ko": c.quote_ko,
-                "quote_translation": c.quote_translation}
+                "version_warning": warning, **translations[c.quote_ko].citation_fields()}
+
+    warnings: set[str | None] = set()
 
     seg_by_id = {s.id: s for s in segments}
     seen: set[str] = set()
@@ -353,6 +382,19 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
     must = [c for c in clauses if c["category"] == "must_check"]
     uncited = sum(not c["citations"] for c in must)
     confidence = "low" if must and uncited * 2 > len(must) else a.confidence
+    cautions = [
+        {"title": c.title, "detail": c.explanation_detail, "explanation": c.explanation_detail,
+         "explanation_simple": c.explanation_simple, "explanation_detail": c.explanation_detail, "kind": c.kind,
+         "clause_ids": [x for x in c.clause_ids if x in seg_by_id],
+         "citations": [x for x in map(cite, c.citations) if x]}
+        for c in a.cautions
+    ]
+    # 근거 법령보다 새 판이 시행 중이면 상담 안내, 최신 판 확인을 못 했으면 공식 원문 대조 안내
+    version_key = "law_outdated" if "outdated" in warnings else "law_unchecked" if "unchecked" in warnings else None
+    notice = " ".join(x for x in (
+        t("low_confidence", lang) if confidence == "low" else None,
+        t(version_key, lang) if version_key else None,
+    ) if x) or None
     return {
         "title": intake.title,
         "doc_type_label": intake.doc_type_label,
@@ -363,13 +405,7 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         "basic_info": [i.model_dump() for i in intake.basic_info],
         "counts": counts,
         "clauses": clauses,
-        "cautions": [
-            {"title": c.title, "detail": c.explanation_detail, "explanation": c.explanation_detail,
-             "explanation_simple": c.explanation_simple, "explanation_detail": c.explanation_detail, "kind": c.kind,
-             "clause_ids": [x for x in c.clause_ids if x in seg_by_id],
-             "citations": [x for x in map(cite, c.citations) if x]}
-            for c in a.cautions
-        ],
+        "cautions": cautions,
         "next_actions": [
             {"id": f"a{i + 1}", "text": x.text, "clause_id": x.clause_id if x.clause_id in seg_by_id else None,
              "due": x.due}
@@ -378,8 +414,8 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
         "open_questions": [{"id": f"oq{i + 1}", "question": q.question, "why": q.why}
                            for i, q in enumerate(a.open_questions[:3])],
         "confidence": confidence,
-        "needs_expert": a.needs_expert or confidence == "low",
-        "notice": t("low_confidence", lang) if confidence == "low" else None,
+        "needs_expert": a.needs_expert or confidence == "low" or version_key == "law_outdated",
+        "notice": notice,
         "not_immigration": intake.doc_kind == "not_immigration",
         "disclaimer": t("disclaimer", lang),
         "as_of": as_of.isoformat(),

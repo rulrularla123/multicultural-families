@@ -2173,3 +2173,29 @@
   margin: 0;
   color: var(--muted);
 }
+
+/* ---------- Provision version ---------- */
+.version-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.version-box .facts {
+  margin: 0;
+}
+
+.version-box__warn {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.version-box__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}

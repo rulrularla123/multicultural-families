@@ -17,6 +17,12 @@
 | | `reviewed` BOOL, `reviewed_by` TEXT NULL, `reviewed_at` TIMESTAMPTZ NULL, `review_note` TEXT NULL | 법령 데이터 자체의 사람 검토 기록. 이용자 답변 승인 단계가 아님 | F-08 |
 | | `source_url` TEXT NULL, `raw_hash` TEXT NULL | 원문 출처, 원문 해시(같은 내용 재적재 감지) | F-08 |
 | | `is_sample` BOOL | 테스트용 샘플 법령. 검색에서 뺀다 | F-08 |
+| | `law_mst` TEXT NULL, `law_id` TEXT NULL, `promulgation_no` TEXT NULL | 적재한 판의 법령일련번호(판마다 다름), 법령ID(판이 바뀌어도 같음), 공포번호. legalize-kr 머리말에서 읽는다 (0002) | F-02, F-08 |
+| | `loaded_at` TIMESTAMPTZ NULL | 이 판을 DB에 적재한 시각 | F-08 |
+| | `version_status` TEXT | 최신 판 확인 결과 `current`(최신) · `upcoming`(최신, 시행 예정 개정 있음) · `outdated`(새 판이 시행 중) · `unknown`(확인 못 함). 새 판을 적재하면 `unknown`으로 돌아간다 | F-01, F-02, F-08 |
+| | `version_checked_at` TIMESTAMPTZ NULL, `version_checked_source` TEXT NULL | 마지막 확인 시각, 비교한 곳(`law.go.kr` · `legalize-kr`) | F-08 |
+| | `needs_reindex` BOOL | 동기화로 새 판을 적재했지만 쉬운 요약·임베딩을 아직 못 만든 법령. 다음 동기화에서 채운다 | F-08 |
+| | `latest_mst` TEXT NULL, `upcoming_mst` TEXT NULL, `upcoming_effective_from` DATE NULL | 확인 당시 시행 중인 판, 공포됐지만 시행 전인 판과 그 시행일 | F-02 |
 | DocumentRelation (`document_relations`) | `src_doc`, `dst_doc`, `rel` (PK) | 법령 사이 관계: `GUIDES`(시행령·시행규칙 → 상위 법률), `AMENDS`, `REPLACES` | F-02 |
 | Provision (`provisions`) | `id` TEXT PK | 조문 노드 ID. 예: `출입국관리법:J25:H1` (제25조 제1항) | F-01, F-02 |
 | | `document_id` FK, `parent_id` TEXT NULL, `jo_id` TEXT | 소속 법령, 상위 노드, 소속 조 | F-02 |
@@ -26,7 +32,7 @@
 | | `path` TEXT, `ordinal` INT | 표시 경로(제3장 > 제25조), 순서 | F-02 |
 | | `effective_from`, `effective_to` DATE NULL | 조문 단위 시행·폐지일 | F-01 |
 | Chunk (`chunks`) | `id` PK, `provision_id` FK, `jo_id`, `document_id` | 검색 단위 | F-01 |
-| | `kind` TEXT, `lang` TEXT | `original`(원문) · `summary`(쉬운 요약), `ko` · `vi` | F-01 |
+| | `kind` TEXT, `lang` TEXT | `original`(한국어 원문) · `summary`(한국어 쉬운 요약) · `azure_translated_summary`(NMT로 번역한 베트남어 요약). 기존 `summary`·`vi`는 표시·검색·신규 임베딩에서 제외한다 | F-01 |
 | | `content` TEXT, `tokens` TEXT NULL | 내용, 한국어 토큰화 결과 | F-01 |
 | | `tsv` TSVECTOR (계산 열) | 전문 검색 | F-01 |
 | | `embedding` VECTOR(1536) NULL | 임베딩 | F-01 |
@@ -44,7 +50,7 @@
 | | `client_id` TEXT, 인덱스 | 브라우저 익명 ID. 다른 ID의 건은 보이지 않는다 | F-07 |
 | | `created_at`, `updated_at` TIMESTAMPTZ | 올린 일시, 바뀐 일시 | F-07 |
 | | `lang` TEXT | 결과 언어 `vi` · `ko` | F-09 |
-| | `filename`, `mime` TEXT, `file_size` INT, `page_count` INT NULL | 파일 정보. 원본 파일은 저장하지 않는다 | F-03 |
+| | `filename`, `mime` TEXT, `file_size` INT, `page_count` INT NULL | 파일 형식·크기·쪽 수와 형식별 기본 파일명. 원본 파일과 파일명은 받지 않는다 | F-03 |
 | | `text` TEXT | 마스킹한 추출 텍스트. 쪽 경계는 폼피드(`\f`) | F-03, F-05 |
 | | `masked_count` INT | 마스킹한 식별정보 개수 (값은 저장하지 않음) | F-03 |
 | | `status` TEXT | 아래 상태값 | 전체 |
@@ -62,7 +68,7 @@
 
 | 상태값 | 화면 표시 | 누가 바꾸나 | 언제 |
 | --- | --- | --- | --- |
-| `uploaded` | 업로드됨 | 서버 | 유효한 파일을 받아 추출·마스킹을 끝냄 |
+| `uploaded` | 업로드됨 | 서버 | 브라우저에서 추출·마스킹한 텍스트를 받아 서버에서 다시 마스킹함 |
 | `questions` | 질문 대기 | 서버 | 서류 종류·요약·개인화 질문 생성 완료 |
 | `analyzing` | 분석중 | 사용자 요청 → 서버 | 필수 질문에 모두 답하고 분석 시작 |
 | `failed` | 분석 실패 | 서버 | LLM 오류·시간 초과·형식 오류. 다시 시도하면 `analyzing` |
@@ -77,7 +83,7 @@
 
 | 데이터 | 이유 |
 | --- | --- |
-| 식별정보 패턴(외국인등록번호, 주민등록번호, 여권번호, 휴대전화번호) | 추출 직후 마스킹해서 저장하고, 마스킹한 텍스트만 보낸다 |
+| 식별정보 패턴(외국인등록번호, 주민등록번호, 여권번호, 휴대전화번호) | 브라우저에서 추출 직후 마스킹하고, 서버에서도 다시 가린 뒤 저장하고 LLM에 보낸다 |
 | 원본 파일 | 저장하지도 보내지도 않는다 |
 | `client_id`, 분석 건 ID, `job_id` | 분석에 필요 없다 |
 

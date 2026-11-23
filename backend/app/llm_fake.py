@@ -99,8 +99,7 @@ def _answer(output_type, instructions: str, messages: list[dict]):
     from app.generation.answer import AnswerCitation
 
     provs = _provisions(_user_text(messages))[:2]
-    cits = [AnswerCitation(provision_id=pid, quote_ko=_first_sentence(txt),
-                           quote_translation=f"{TAG} {_first_sentence(txt)}", marker=i + 1)
+    cits = [AnswerCitation(provision_id=pid, quote_ko=_first_sentence(txt), marker=i + 1)
             for i, (pid, _path, txt) in enumerate(provs)]
     if _is_ko(instructions):
         body = f"{TAG} 검색된 조문으로 만든 예시 답변입니다. 실제 답변은 OpenAI API 키를 넣고 LLM_FAKE=false로 실행하세요."
@@ -175,8 +174,7 @@ async def _analysis(output_type, instructions: str, messages: list[dict]):
     content = _user_text(messages)
     segs = [(m.group(1), m.group(2)) for m in _SEGMENT.finditer(content)]
     provs = _provisions(content)
-    cit = [Citation(provision_id=provs[0][0], quote_ko=_first_sentence(provs[0][2]),
-                    quote_translation=f"{TAG} {_first_sentence(provs[0][2])}")] if provs else []
+    cit = [Citation(provision_id=provs[0][0], quote_ko=_first_sentence(provs[0][2]))] if provs else []
     t = (lambda k, v: k) if ko else (lambda k, v: v)
     findings = []
     for i, (sid, text) in enumerate(segs[:8]):

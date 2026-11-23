@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.lang import today_kr
+from app.core.law_version import version_warning
 from app.schemas.provision import ProvisionOut, RelatedOut
+from ingest.sources.versions import article_url, version_url
 
 router = APIRouter(prefix="/provisions", tags=["provisions"])
 
@@ -15,8 +17,11 @@ GET_SQL = text(
     SELECT p.id, p.document_id, p.level, p.path, p.full_text_ko, p.effective_from, p.effective_to,
            d.title_ko, d.doc_type, d.status, d.source_url, d.reviewed, d.reviewed_by, d.reviewed_at,
            d.effective_from AS doc_from, d.effective_to AS doc_to,
+           d.law_mst, d.issued_date, d.promulgation_no, d.loaded_at, d.version_status, d.version_checked_at,
+           d.version_checked_source, d.upcoming_effective_from,
+           (SELECT j.number FROM provisions j WHERE j.id = coalesce(p.jo_id, p.id) AND j.level = 'jo') AS jo_number,
            (SELECT c.content FROM chunks c
-             WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi,
+             WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'azure_translated_summary' AND c.lang = 'vi' LIMIT 1) AS summary_vi,
            (SELECT c.content FROM chunks c
              WHERE c.jo_id = coalesce(p.jo_id, p.id) AND c.kind = 'summary' AND c.lang = 'ko' LIMIT 1) AS summary_ko
     FROM provisions p JOIN legal_documents d ON d.id = p.document_id
@@ -64,6 +69,8 @@ async def get_provision(id: str = Query(..., examples=["출입국관리법:J25"]
         full_text_ko=r.full_text_ko,
         summary_vi=_strip_header(r.summary_vi),
         summary_ko=_strip_header(r.summary_ko),
+        summary_translation_status="translated" if r.summary_vi else "unavailable",
+        summary_translation_provider="azure_translator" if r.summary_vi else None,
         effective=effective,
         effective_from=r.effective_from or r.doc_from,
         effective_to=r.effective_to or r.doc_to,
@@ -72,6 +79,17 @@ async def get_provision(id: str = Query(..., examples=["출입국관리법:J25"]
         reviewed=r.reviewed,
         reviewed_by=r.reviewed_by,
         reviewed_at=r.reviewed_at,
+        law_mst=r.law_mst,
+        issued_date=r.issued_date,
+        promulgation_no=r.promulgation_no,
+        version_url=version_url(r.law_mst),
+        official_url=article_url(r.title_ko, r.jo_number),
+        loaded_at=r.loaded_at,
+        version_status=r.version_status,
+        version_checked_at=r.version_checked_at,
+        version_checked_source=r.version_checked_source,
+        upcoming_effective_from=r.upcoming_effective_from,
+        version_warning=version_warning(r.version_status, r.version_checked_at),
     )
 
 

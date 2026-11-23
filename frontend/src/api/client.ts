@@ -66,15 +66,6 @@ export async function apiDelete(path: string): Promise<void> {
   await handle<void>(res)
 }
 
-export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'X-Client-Id': clientId() },
-    body: form,
-  })
-  return handle<T>(res)
-}
-
 export interface ChatStreamBody {
   message: string
   lang: Lang
@@ -183,6 +174,9 @@ export interface Health {
   chunks: number
   embedded: number
   llm_fake: boolean
+  laws_outdated?: number
+  laws_unchecked?: number
+  laws_checked_at?: string | null
 }
 
 export async function getHealth(): Promise<Health> {

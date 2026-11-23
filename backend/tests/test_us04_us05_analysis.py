@@ -17,6 +17,7 @@ from sqlalchemy import text
 from app.documents.analyze import DocumentAnalysis
 from app.generation.answer import Citation
 from app.generation.verify import quote_in_text
+from tests.document_payload import document_payload
 
 CID = "us0405-client-0001"
 OTHER = "us0405-client-0002"
@@ -46,8 +47,7 @@ def svc():
 
 def _sample(c, headers=H, lang="ko"):
     """시연용 가상 서류를 일반 업로드로 올려 질문 대기 건을 만든다."""
-    r = c.post("/api/v1/documents", headers=headers, data={"lang": lang},
-               files={"file": (DEMO_DOC.name, DEMO_DOC.read_bytes(), DOCX_MIME)})
+    r = c.post("/api/v1/documents", headers=headers, json=document_payload(DEMO_DOC.name, DOCX_MIME, DEMO_DOC.read_bytes(), lang))
     assert r.status_code == 201, r.text
     return r.json()
 

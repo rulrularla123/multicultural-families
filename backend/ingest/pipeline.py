@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, insert, select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import vector_literal
@@ -17,6 +17,7 @@ from app.models.law import (
     ProvisionEdge,
     UnresolvedReference,
 )
+from app.translation import SUMMARY_KIND, require_translation, translate_texts
 from ingest.chunker import chunk_document
 from ingest.loader import RawDocument
 from ingest.parsers.structure import parse_law
@@ -62,6 +63,12 @@ async def load_documents(session: AsyncSession, docs: list[RawDocument], force: 
                 raw_hash=raw.raw_hash,
                 is_sample=m.get("is_sample", False),
                 preamble=parsed.preamble,
+                law_mst=m.get("law_mst"),
+                law_id=m.get("law_id"),
+                promulgation_no=m.get("promulgation_no"),
+                loaded_at=datetime.now(UTC),
+                # 새 판을 적재하면 이전 확인 결과는 맞지 않으므로 다시 확인할 때까지 unknown
+                version_status="unknown",
                 **review,
             )
         )
@@ -188,7 +195,8 @@ async def rebuild_relations(session: AsyncSession) -> tuple[int, int]:
     return len(edges), len(unresolved)
 
 
-async def embed_missing(session: AsyncSession, batch: int = 64) -> int:
+async def embed_missing(session: AsyncSession, batch: int = 64, document_ids: list[str] | None = None) -> int:
+    """임베딩이 없는 청크를 임베딩한다. document_ids가 있으면 그 법령의 청크만."""
     from app.core.config import get_settings
 
     if get_settings().llm_fake:
@@ -197,7 +205,10 @@ async def embed_missing(session: AsyncSession, batch: int = 64) -> int:
     while True:
         rows = (
             await session.execute(
-                select(Chunk.id, Chunk.content).where(Chunk.embedding.is_(None)).order_by(Chunk.id).limit(batch)
+                select(Chunk.id, Chunk.content).where(
+                    Chunk.embedding.is_(None), (Chunk.lang != "vi") | (Chunk.kind == SUMMARY_KIND),
+                    Chunk.document_id.in_(document_ids) if document_ids is not None else true(),
+                ).order_by(Chunk.id).limit(batch)
             )
         ).all()
         if not rows:
@@ -214,12 +225,6 @@ async def embed_missing(session: AsyncSession, batch: int = 64) -> int:
 
 
 SUMMARY_INSTRUCTIONS = {
-    "vi": (
-        "You summarize one article of Korean immigration/residence law for Vietnamese marriage migrants living "
-        "in Korea. Write 2-4 sentences in plain Vietnamese. Keep every number, deadline, amount and condition "
-        "exactly. Put the key Korean legal term in parentheses after its Vietnamese translation the first time, "
-        "e.g. gia hạn thời gian lưu trú (체류기간 연장허가). Do not add information that is not in the article."
-    ),
     "ko": (
         "한국 출입국·체류 법령 조문 하나를 법률 지식이 없는 사람도 이해하도록 쉬운 한국어 2~4문장으로 요약한다. "
         "숫자·기한·금액·조건은 그대로 둔다. 조문에 없는 내용은 덧붙이지 않는다."
@@ -227,12 +232,18 @@ SUMMARY_INSTRUCTIONS = {
 }
 
 
-async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency: int = 16) -> int:
-    """조마다 쉬운 요약 청크를 만든다. 베트남어 요약은 베트남어 질문의 검색 재현율을 높인다."""
+async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency: int = 16,
+                            document_ids: list[str] | None = None) -> int:
+    """한국어 요약과 베트남어 번역을 만든다. 지정한 법령만 처리할 수 있다."""
     from app.core.config import get_settings
 
     if get_settings().llm_fake:
         raise RuntimeError("LLM_FAKE=true 상태에서는 요약을 저장하지 않습니다.")
+    if lang == "vi":
+        # 키가 없는데 OpenAI 한국어 요약부터 생성해 비용을 쓰지 않는다.
+        require_translation()
+        await summarize_missing(session, lang="ko", concurrency=concurrency, document_ids=document_ids)
+        return await translate_summaries_missing(session, document_ids=document_ids)
     instructions = SUMMARY_INSTRUCTIONS[lang]
     rows = (
         await session.execute(
@@ -241,12 +252,13 @@ async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency
                 SELECT p.id, p.document_id, p.path, p.full_text_ko, d.domains
                 FROM provisions p JOIN legal_documents d ON d.id = p.document_id
                 WHERE p.level = 'jo' AND p.full_text_ko NOT LIKE '%삭제 <%'
+                  AND (CAST(:docs AS text[]) IS NULL OR p.document_id = ANY(CAST(:docs AS text[])))
                   AND NOT EXISTS (SELECT 1 FROM chunks c
                                   WHERE c.jo_id = p.id AND c.kind = 'summary' AND c.lang = :lang)
                 ORDER BY p.document_id, p.ordinal
                 """
             ),
-            {"lang": lang},
+            {"lang": lang, "docs": document_ids},
         )
     ).all()
     sem = asyncio.Semaphore(concurrency)
@@ -281,6 +293,41 @@ async def summarize_missing(session: AsyncSession, lang: str = "vi", concurrency
     return done
 
 
+async def translate_summaries_missing(
+    session: AsyncSession, document_ids: list[str] | None = None
+) -> int:
+    """기존 LLM 베트남어 요약은 재사용하지 않고, 성공한 API 번역만 별도 kind로 저장한다."""
+    rows = (await session.execute(text(
+        """
+        SELECT c.jo_id, c.document_id, c.content, c.domains
+        FROM chunks c
+        WHERE c.kind = 'summary' AND c.lang = 'ko'
+          AND (CAST(:docs AS text[]) IS NULL OR c.document_id = ANY(CAST(:docs AS text[])))
+          AND NOT EXISTS (SELECT 1 FROM chunks v
+                          WHERE v.jo_id = c.jo_id AND v.lang = 'vi' AND v.kind = :kind)
+        ORDER BY c.jo_id
+        """
+    ), {"kind": SUMMARY_KIND, "docs": document_ids})).all()
+    done = 0
+    for i in range(0, len(rows), 50):
+        batch = rows[i:i + 50]
+        # 경로·조문 ID는 번역하지 않는다. 한국어 요약 본문만 전송한다.
+        sources = [r.content.split("\n", 1)[1] for r in batch]
+        translations = await translate_texts(sources, "vi")
+        if any(t.status != "translated" for t in translations):
+            raise RuntimeError("법령 요약 번역 실패. 이번 묶음은 저장하지 않았습니다. 설정·연결을 확인 후 재시도하세요.")
+        await session.execute(insert(Chunk), [
+            {"provision_id": r.jo_id, "jo_id": r.jo_id, "document_id": r.document_id,
+             "kind": SUMMARY_KIND, "lang": "vi", "content": f"{r.content.split(chr(10), 1)[0]}\n{t.text}",
+             "tokens": None, "domains": r.domains}
+            for r, t in zip(batch, translations, strict=True)
+        ])
+        await session.commit()
+        done += len(batch)
+        log.info("번역 요약(vi, azure_translator) %d/%d", done, len(rows))
+    return done
+
+
 async def set_review(
     session: AsyncSession, doc_id: str, by: str | None, note: str | None = None, unset: bool = False
 ) -> LegalDocument:
@@ -302,3 +349,93 @@ async def set_review(
 async def list_reviews(session: AsyncSession) -> list[LegalDocument]:
     q = select(LegalDocument).where(~LegalDocument.is_sample).order_by(LegalDocument.reviewed, LegalDocument.id)
     return list((await session.execute(q)).scalars().all())
+
+
+async def check_versions(session: AsyncSession, today) -> list:
+    """적재한 법령마다 최신 판인지 확인하고 결과를 저장한다. 네트워크 오류는 unknown으로 남기고 계속한다."""
+    from ingest.sources.versions import check_versions as run_checks
+
+    docs = list((await session.execute(
+        select(LegalDocument).where(~LegalDocument.is_sample).order_by(LegalDocument.id)
+    )).scalars().all())
+    results = await asyncio.to_thread(run_checks, docs, today)
+    now = datetime.now(UTC)
+    by_id = {d.id: d for d in docs}
+    for r in results:
+        d = by_id[r.document_id]
+        d.version_status = r.status
+        d.version_checked_at = now
+        d.version_checked_source = r.source
+        d.latest_mst = r.latest_mst
+        d.upcoming_mst = r.upcoming_mst
+        d.upcoming_effective_from = r.upcoming_effective_from
+    await session.commit()
+    return results
+
+
+async def sync_versions(session: AsyncSession, root, today, dry_run: bool = False) -> dict:
+    """공식 사이트(또는 legalize-kr)의 현행 판과 DB에 적재·임베딩된 판을 비교해, 바뀐 법령만 다시 받는다.
+
+    새 판이 시행 중(outdated)인 법령 → legalize-kr에서 받기 → 재적재(조문·청크) → 관계 재구성
+    → 그 법령의 쉬운 요약·임베딩 다시 만들기 → 최신 판 다시 확인. 바뀌지 않은 법령은 건드리지 않는다.
+    재적재했지만 요약·임베딩을 끝내지 못한 법령(LLM_FAKE, OpenAI 오류)은 `needs_reindex`로 남겨 다음 실행에서 채운다.
+    """
+    from app.core.config import get_settings
+    from ingest.loader import discover
+    from ingest.sources.legalize_kr import fetch
+    from ingest.sources.versions import family_of
+
+    report: dict = {"checked": [], "changed": [], "reloaded": [], "reindexed": [], "pending_reindex": [],
+                    "still_outdated": [], "summarized": 0, "embedded": 0, "llm_skipped": False}
+    checks = await check_versions(session, today)
+    report["checked"] = checks
+    types = dict((await session.execute(select(LegalDocument.id, LegalDocument.doc_type))).all())
+    changed = [c.document_id for c in checks if c.status == "outdated"]
+    report["changed"] = changed
+    if dry_run:
+        return report
+
+    if changed:
+        families = sorted({family_of(d, types[d])[0] for d in changed if family_of(d, types[d])})
+        await asyncio.to_thread(fetch, families, root, today)
+        before = dict((await session.execute(select(LegalDocument.id, LegalDocument.raw_hash))).all())
+        docs = [d for d in discover(root) if d.id in set(changed)]
+        await load_documents(session, docs)
+        report["reloaded"] = [d.id for d in docs if before.get(d.id) != d.raw_hash]
+        if report["reloaded"]:
+            await session.execute(
+                update(LegalDocument).where(LegalDocument.id.in_(report["reloaded"])).values(needs_reindex=True)
+            )
+            await session.commit()
+            await rebuild_relations(session)
+
+    # 재적재한 법령(이번 또는 이전 실행)의 청크만 요약·임베딩한다. 다른 법령은 건드리지 않는다
+    pending = list((await session.execute(
+        select(LegalDocument.id).where(LegalDocument.needs_reindex).order_by(LegalDocument.id)
+    )).scalars().all())
+    if pending and get_settings().llm_fake:
+        report["llm_skipped"] = True
+        log.warning("LLM_FAKE=true라 요약·임베딩을 건너뜁니다: %s. 실제 키로 다시 실행하면 채웁니다.", pending)
+    elif pending:
+        # 요약은 DB의 다른 법령에 이미 있는 언어만 만든다 (요약을 쓰지 않는 환경에서 비용이 생기지 않게)
+        summary_langs = list((await session.execute(
+            select(Chunk.lang).where(
+                ((Chunk.kind == "summary") & (Chunk.lang == "ko")) | (Chunk.kind == SUMMARY_KIND),
+                Chunk.document_id.not_in(pending),
+            ).distinct()
+        )).scalars().all())
+        for lang in summary_langs:
+            report["summarized"] += await summarize_missing(session, lang=lang, document_ids=pending)
+        report["embedded"] = await embed_missing(session, document_ids=pending)
+        await session.execute(
+            update(LegalDocument).where(LegalDocument.id.in_(pending)).values(needs_reindex=False)
+        )
+        await session.commit()
+        report["reindexed"] = pending
+    report["pending_reindex"] = pending if report["llm_skipped"] else []
+
+    if changed:
+        after = await check_versions(session, today)
+        report["checked"] = after
+        report["still_outdated"] = [c.document_id for c in after if c.status == "outdated"]
+    return report

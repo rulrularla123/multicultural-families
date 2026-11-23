@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://legal:legal@localhost:5433/legal"
 
     openai_api_key: str = ""
+    # 공개 법령 인용·한국어 요약의 번역 전용. 브라우저로 전달하지 않는다.
+    azure_translator_key: str = ""  # Azure에서 F0 단일 서비스 리소스를 생성한다
+    azure_translator_region: str = ""  # global 리소스는 생략, regional 리소스는 해당 리전
+    translation_timeout_seconds: float = 10.0
     # 모델명은 환경변수로 교체한다. fast 모델은 질의 재작성·조문 요약에 사용.
     openai_chat_model: str = "gpt-5"
     openai_fast_model: str = "gpt-5-mini"
@@ -36,6 +40,15 @@ class Settings(BaseSettings):
 
     # true면 '_' 샘플(테스트) 법령도 검색한다. 개발 초기 확인용
     include_samples: bool = False
+
+    # 국가법령정보센터 Open API 인증값(OC). 있으면 `python -m ingest versions`가 법제처 공식 현행 판과 비교한다.
+    # 없으면 legalize-kr과 비교한다
+    law_go_kr_oc: str = ""
+    # 최신 판 확인이 이보다 오래됐으면 답변·조문 화면에 "최신 판 확인 필요"를 표시한다
+    law_version_max_age_days: int = 7
+    # 서버가 켜져 있는 동안 이 주기(시간)마다 최신 판을 확인하고, 새 판이 시행 중인 법령만 다시 받아 요약·임베딩한다.
+    # 0이면 자동 동기화를 끈다 (테스트는 0)
+    law_sync_interval_hours: float = 24
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 

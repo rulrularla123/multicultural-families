@@ -18,6 +18,7 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from app.api.v1 import documents as api
 from app.core.db import get_session
 from app.documents.extract import MAX_BYTES, PDF, UnsupportedDocument, extract_text
+from tests.document_payload import document_payload
 
 CID = "regression-client-01"
 OTHER = "regression-client-02"
@@ -89,8 +90,10 @@ def test_us03_pdf_10485761_bytes_is_rejected_with_413():
     """US-03 (경계): 10,485,761바이트는 거절한다(API.md 413)."""
     data = text_pdf(size=MAX_BYTES + 1)
     assert len(data) == 10_485_761
-    r = bare_client().post("/api/v1/documents", headers=H, data={"lang": "ko"},
-                           files={"file": ("a.pdf", data, PDF)})
+    r = bare_client().post("/api/v1/documents", headers=H, json={
+        "format": "pdf", "file_size": len(data), "page_count": 1, "lang": "ko",
+        "text": "Thong bao gia han luu tru. Han nop ho so.",
+    })
     assert r.status_code == 413 and r.json()["detail"]
 
 
@@ -123,8 +126,8 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 
 def _sample(c, headers=H, lang="ko"):
     """시연용 가상 서류를 일반 업로드로 올려 분석 건을 만든다."""
-    r = c.post("/api/v1/documents", headers=headers, data={"lang": lang},
-               files={"file": (DEMO_DOC.name, DEMO_DOC.read_bytes(), DOCX_MIME)})
+    r = c.post("/api/v1/documents", headers=headers,
+               json=document_payload(DEMO_DOC.name, DOCX_MIME, DEMO_DOC.read_bytes(), lang))
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -151,17 +154,17 @@ def _reviewed(c):
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("name, data, mime, status", [
-    ("a.txt", b"hello" * 20, "text/plain", 415),
-    ("big.pdf", None, PDF, 413),
-    ("scan.pdf", None, PDF, 422),
+@pytest.mark.parametrize("format, file_size, content, status", [
+    ("txt", 100, "hello" * 20, 415),
+    ("pdf", MAX_BYTES + 1, "hello" * 20, 413),
+    ("pdf", 100, "", 422),
 ], ids=["not-pdf-docx", "over-10mb", "no-text"])
-def test_us03_rejected_upload_creates_no_analysis(client, name, data, mime, status):
-    """US-03 (실패): 지원하지 않는 파일·10MB 초과·글자 없는 파일은 분석 건을 만들지 않고 이유를 표시한다."""
-    if data is None:
-        data = text_pdf(size=MAX_BYTES + 1) if status == 413 else blank_pdf()
+def test_us03_rejected_upload_creates_no_analysis(client, format, file_size, content, status):
+    """US-03 (실패): 지원하지 않는 형식·10MB 초과·글자 없는 입력에는 분석 건이 없다."""
     before = _ids(client)
-    r = client.post("/api/v1/documents", headers=H, data={"lang": "vi"}, files={"file": (name, data, mime)})
+    r = client.post("/api/v1/documents", headers=H, json={
+        "format": format, "file_size": file_size, "page_count": 1, "lang": "vi", "text": content,
+    })
     assert r.status_code == status and r.json()["detail"]
     assert _ids(client) == before
 
@@ -199,14 +202,10 @@ def llm_calls(monkeypatch):
 @pytest.mark.db
 def test_us03_intake_request_has_masked_text_without_client_id(client, llm_calls):
     """US-03 (LLM): 서류 파악·질문 생성 요청에는 마스킹한 추출 텍스트만 있고 익명 ID는 없다."""
-    from docx import Document
-
-    doc = Document()
-    doc.add_paragraph(f"체류기간 연장 신청 안내입니다. 연락처 {PHONE}로 연락 바랍니다.")
-    buf = io.BytesIO()
-    doc.save(buf)
-    r = client.post("/api/v1/documents", headers=H, data={"lang": "ko"},
-                    files={"file": ("m.docx", buf.getvalue(), DOCX_MIME)})
+    r = client.post("/api/v1/documents", headers=H, json={
+        "format": "docx", "file_size": 1000, "page_count": 1, "lang": "ko",
+        "text": f"체류기간 연장 신청 안내입니다. 연락처 {PHONE}로 연락 바랍니다.",
+    })
     assert r.status_code == 201, r.text
     assert llm_calls, "LLM 요청이 기록되지 않음"
     sent = "\n".join(llm_calls)

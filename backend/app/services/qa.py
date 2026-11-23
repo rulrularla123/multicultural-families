@@ -16,6 +16,7 @@ from app import llm
 from app.common.identity_patterns import mask
 from app.core.config import get_settings
 from app.core.lang import DEFAULT_LANG, Lang, t
+from app.core.law_version import version_warning
 from app.generation.answer import LegalAnswer, generate_answer
 from app.generation.citations import align_citations, alignment_errors
 from app.generation.numbers import check_numbers
@@ -23,6 +24,7 @@ from app.generation.verify import ProvisionInfo, check_citation, lookup
 from app.retrieval.pipeline import ContextItem, retrieve
 from app.retrieval.rewrite import resolve_as_of, rewrite_query
 from app.schemas.chat import AnswerPayload, ChatRequest, CitationOut, NumberCheckOut, SourceOut, UsageOut
+from app.translation import Translation, translate_texts
 
 log = logging.getLogger(__name__)
 
@@ -179,6 +181,8 @@ async def _answer_stream(
         ans.confidence = {"high": "medium", "medium": "low"}.get(ans.confidence, "low")
 
     context_by_id = {i.provision_id: i for i in items}
+    translations = await translate_texts([c.quote_ko for c, chk in pairs if chk.ok], lang)
+    translated = iter(translations)
     payload = AnswerPayload(
         lang=lang,
         as_of=as_of,
@@ -188,9 +192,10 @@ async def _answer_stream(
                 index=n + 1,
                 provision_id=chk.corrected_id or c.provision_id,
                 quote_ko=c.quote_ko,
-                quote_translation=c.quote_translation,
+                **(next(translated) if chk.ok else Translation(status="not_verified")).citation_fields(),
                 verified=chk.ok,
                 verify_error=chk.reason,
+                version_warning=_version_warning(infos, chk.corrected_id or c.provision_id, c.provision_id),
             )
             for n, (c, chk) in enumerate(pairs)
         ],
@@ -213,8 +218,25 @@ async def _answer_stream(
         number_checks=[NumberCheckOut(**c.as_dict()) for c in number_checks],
         analysis_id=analysis.id if analysis else None,
     )
+    _apply_version_notice(payload)
     await _finish(session, req, analysis, payload, usage)
     yield {"event": "answer", "data": payload.model_dump(mode="json")}
+
+
+def _version_warning(infos: dict[str, ProvisionInfo], *ids: str) -> str | None:
+    info = next((infos[i] for i in ids if i in infos), None)
+    return version_warning(info.version_status, info.version_checked_at) if info else None
+
+
+def _apply_version_notice(payload: AnswerPayload) -> None:
+    """근거 법령보다 새 판이 시행 중이면 상담 안내를 붙이고, 확인을 못 했으면 공식 원문 대조를 안내한다."""
+    warnings = {c.version_warning for c in payload.citations}
+    key = "law_outdated" if "outdated" in warnings else "law_unchecked" if "unchecked" in warnings else None
+    if key is None:
+        return
+    if key == "law_outdated":
+        payload.needs_expert = True
+    payload.notice = " ".join(x for x in (payload.notice, t(key, payload.lang)) if x)
 
 
 async def _finish(

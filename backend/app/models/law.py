@@ -34,6 +34,19 @@ class LegalDocument(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_note: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # 판(버전) 정보와 최신 판 확인 결과 (0002). 확인은 `python -m ingest versions`
+    law_mst: Mapped[str | None] = mapped_column(Text)                  # 법령일련번호. 판마다 다르다
+    law_id: Mapped[str | None] = mapped_column(Text)                   # 법령ID. 판이 바뀌어도 같다
+    promulgation_no: Mapped[str | None] = mapped_column(Text)          # 공포번호
+    loaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version_status: Mapped[str] = mapped_column(Text, default="unknown", server_default="unknown")
+    version_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version_checked_source: Mapped[str | None] = mapped_column(Text)   # law.go.kr | legalize-kr
+    latest_mst: Mapped[str | None] = mapped_column(Text)
+    upcoming_mst: Mapped[str | None] = mapped_column(Text)
+    upcoming_effective_from: Mapped[date | None] = mapped_column(Date)
+    # 동기화로 새 판을 적재했지만 요약·임베딩을 아직 못 만든 법령. 다음 동기화에서 채운다
+    needs_reindex: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class DocumentRelation(Base):
@@ -71,7 +84,7 @@ class Chunk(Base):
     provision_id: Mapped[str] = mapped_column(ForeignKey("provisions.id", ondelete="CASCADE"))
     jo_id: Mapped[str] = mapped_column(Text, index=True)
     document_id: Mapped[str] = mapped_column(ForeignKey("legal_documents.id", ondelete="CASCADE"))
-    kind: Mapped[str] = mapped_column(Text)                             # original | summary
+    kind: Mapped[str] = mapped_column(Text)                             # original | summary(ko) | azure_translated_summary(vi, NMT)
     lang: Mapped[str] = mapped_column(Text)                             # vi | ko
     content: Mapped[str] = mapped_column(Text)
     tokens: Mapped[str | None] = mapped_column(Text)                    # 검색 토큰 (한글 2-gram + 어절)

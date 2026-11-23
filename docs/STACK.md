@@ -11,6 +11,7 @@
 | 서버 | Python·FastAPI (비동기, SQLAlchemy async) | 팀 전원이 써 본 프레임워크. 법령 처리·LLM 호출을 Python 안에서 이어서 구현한다 |
 | DB | PostgreSQL 16+ + pgvector | 조문 임베딩 벡터 검색과 전문 검색을 한 DB에서 한다 |
 | LLM | OpenAI (구조화 출력 + 임베딩) | 구조화 출력으로 인용 조문을 받아 코드로 검증하기 쉽다. 기본 모델은 답변 `gpt-5`, 질의 재작성·요약 `gpt-5-mini`, 임베딩 `text-embedding-3-large`(1536차원). 환경변수로 교체한다 |
+| 법령 번역 | Azure Translator 표준 NMT (F0 리소스, 서버에서 HTTP 호출) | 검증된 한국어 인용·한국어 조문 요약만 번역한다. 표준 v3 `category=general`을 사용하고, 키 미설정·한도 초과·장애 시 다른 번역 API나 LLM으로 대체하지 않는다. [처리 기준](decisions/law-translation-2026-11-17.md) |
 | 마이그레이션 | Alembic | 스키마 변경 이력 관리 |
 | 테스트 | pytest (서버), `npm run build`·`npm run lint` (화면) | CI에서 Postgres+pgvector 서비스로 실행 |
 | 개발용 LLM 대체 | `LLM_FAKE=true` | API 키 없이 화면 흐름을 확인한다. 모든 문구에 개발용 표시를 붙이고, 시연 때는 반드시 끈다 |

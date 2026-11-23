@@ -35,17 +35,19 @@ def test_chat_language(client, monkeypatch, language, expected, greeting):
     assert response.json()["answer"].startswith(greeting)
 
 
-@pytest.mark.parametrize(("form", "expected"), [({}, "vi"), ({"lang": "ko"}, "ko")])
-def test_upload_passes_language_to_analysis(client, monkeypatch, form, expected):
+@pytest.mark.parametrize(("language", "expected"), [({}, "vi"), ({"lang": "ko"}, "ko")])
+def test_upload_passes_language_to_analysis(client, monkeypatch, language, expected):
     create_analysis = AsyncMock(return_value={"lang": expected})
     monkeypatch.setattr(documents.svc, "create_analysis", create_analysis)
+    text = "체류기간 연장 신청을 위해 여권과 신청서 등 준비 서류를 확인하세요."
 
     response = client.post(
         "/api/v1/documents",
         headers={"X-Client-Id": "language-test"},
-        data=form,
-        files={"file": ("sample.pdf", b"test upload", "application/pdf")},
+        json={"text": text, "format": "pdf", "file_size": 2048, "page_count": 1, **language},
     )
 
     assert response.status_code == 201, response.text
-    create_analysis.assert_awaited_once_with(None, "language-test", "sample.pdf", "application/pdf", b"test upload", expected)
+    create_analysis.assert_awaited_once_with(
+        None, "language-test", "document.pdf", "application/pdf", 2048, 1, text, expected,
+    )

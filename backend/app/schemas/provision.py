@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.translation import TranslationStatus
+
 
 class ProvisionOut(BaseModel):
     id: str
@@ -14,6 +16,8 @@ class ProvisionOut(BaseModel):
     full_text_ko: str
     summary_vi: str | None
     summary_ko: str | None
+    summary_translation_status: TranslationStatus = "unavailable"
+    summary_translation_provider: str | None = None
     effective: bool              # 오늘(한국 날짜) 시행 중인지
     effective_from: date | None
     effective_to: date | None

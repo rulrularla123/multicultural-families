@@ -14,7 +14,6 @@ class Citation(BaseModel):
     provision_id: str = Field(
         description="Exact id attribute of a provided <provision>, or a 항/호 id under it (e.g. '출입국관리법:J25:H1')")
     quote_ko: str = Field(description="Verbatim Korean excerpt copied from that provision (may use … to skip)")
-    quote_translation: str = Field(description="Translation of quote_ko into the answer language (same text if Korean)")
 
 
 class AnswerCitation(Citation):
@@ -38,6 +37,7 @@ Rules:
 2. Every legal statement must cite a provision with a marker [n]. Number markers 1, 2, 3 … in the order they first appear in the text, use at most 4, and add exactly one citations entry per marker with marker = n. Do not add citations that the text does not use.
    provision_id must be the id of a provided provision, or a 항/호 inside it written exactly as "<article id>:H<항 number>" or "<article id>:H<항>:O<호>" (e.g. "출입국관리법:J25:H1", "출입국관리법시행령:J12:O3"). Articles like 제10조의2 use a hyphen: "출입국관리법:J10-2".
 3. quote_ko must be copied verbatim from that provision's Korean text. Do not paraphrase inside quote_ko.
+   Do not translate quotations. The server translates verified Korean quotations using a separate translation API.
 4. Prefer the most specific rule: when a 시행령/시행규칙 provision details a 법 provision (retrieved via "GUIDES"), explain both — the law states the duty, the decree/rule states the documents, deadlines and procedure.
 5. If the answer depends on facts the user has not given (current residence status, expiry date, marital status, children, how long they have lived in Korea), state the assumption and add follow_up_questions.
 6. Set needs_expert to true when there is a divorce or separation, domestic violence, overstay, a deportation or departure order, a criminal record, or a refusal to decide — and tell the user to contact the immigration office or ☎ 1345 (Foreigner Information Center, Vietnamese available).
@@ -79,7 +79,7 @@ async def generate_answer(
     )
     content = (
         f"{doc}<provisions>\n{format_context(items, lang)}\n</provisions>\n\nQuestion: {question}\n\n"
-        f"Answer language: {LANG_NAME[lang]} (write the whole answer and every quote_translation in {LANG_NAME[lang]})."
+        f"Answer language: {LANG_NAME[lang]}. Keep quote_ko in Korean; do not generate quotation translations."
     )
     messages = [*history[-6:], {"role": "user", "content": content}]
     if feedback:

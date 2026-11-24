@@ -36,7 +36,9 @@ def _in_force_version(client: httpx.Client, family: str, kind: str, latest: str,
     r = client.get(COMMITS, params={"path": f"kr/{family}/{kind}.md", "per_page": 30})
     r.raise_for_status()
     for c in r.json()[1:]:
-        text = client.get(RAW.format(ref=c["sha"], family=family, kind=kind)).text
+        revision = client.get(RAW.format(ref=c["sha"], family=family, kind=kind))
+        revision.raise_for_status()
+        text = revision.text
         old = _effective(text)
         if old and old <= today:
             log.info("%s/%s: 최신 판은 %s 시행 예정 → %s 시행 판을 씁니다", family, kind, eff, old)
@@ -50,12 +52,21 @@ def fetch(families: list[str], out: Path, today: date | None = None) -> list[Pat
     written: list[Path] = []
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         for family in families:
-            for kind in KINDS:
-                r = client.get(RAW.format(ref="main", family=family, kind=kind))
-                if r.status_code == 404:
-                    continue  # 시행규칙이 없는 법령도 있다
-                r.raise_for_status()
-                text = _in_force_version(client, family, kind, r.text, today)
+            # 법령 한 종류라도 수집에 실패하면 기존 파일을 모두 보존한다.
+            collected: dict[str, str] = {}
+            try:
+                for kind in KINDS:
+                    r = client.get(RAW.format(ref="main", family=family, kind=kind))
+                    if r.status_code == 404:
+                        continue  # 시행규칙이 없는 법령도 있다
+                    r.raise_for_status()
+                    collected[kind] = _in_force_version(client, family, kind, r.text, today)
+            except httpx.HTTPError as exc:
+                reason = str(exc).partition("\n")[0] or type(exc).__name__
+                log.warning("%s: 수집 건너뜀 (%s)", family, reason)
+                continue
+
+            for kind, text in collected.items():
                 path = out / family / f"{kind}.md"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")

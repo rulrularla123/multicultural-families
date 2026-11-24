@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     azure_translator_key: str = ""  # Azure에서 F0 단일 서비스 리소스를 생성한다
     azure_translator_region: str = ""  # global 리소스는 생략, regional 리소스는 해당 리전
     translation_timeout_seconds: float = 10.0
+    # 서류 분석 LLM 호출이 이보다 오래 걸리면 분석 실패로 처리한다 (백로그 US-04 설계값)
+    analysis_timeout_seconds: float = 90.0
     # 모델명은 환경변수로 교체한다. fast 모델은 질의 재작성·조문 요약에 사용.
     openai_chat_model: str = "gpt-5"
     openai_fast_model: str = "gpt-5-mini"

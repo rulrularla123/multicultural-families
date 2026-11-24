@@ -1346,9 +1346,26 @@
   color: var(--muted);
 }
 
+.clause-original {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+.clause-original mark {
+  background: var(--marker);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
 .highlight-chip {
   display: inline-block;
-  background: var(--highlight);
+  background: var(--marker);
   color: var(--text);
   padding: 2px 8px;
   border-radius: 4px;

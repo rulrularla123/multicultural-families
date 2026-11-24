@@ -292,24 +292,26 @@ async def _analyze(session: AsyncSession, analysis_id: str, job_id: str) -> dict
     law = await retrieve(session, queries, original, as_of, None, include_samples=get_settings().include_samples)
 
     feedback = None
-    for attempt in range(2):
-        if not await _guarded(session, analysis_id, job_id, "stage = 'analyzing'", {}):
-            return None
-        analysis = await run_analysis(segments, intake, answers, law, lang, as_of,
-                                      feedback=feedback, document_claims=claims, confirmed_facts=confirmed)
+    # 첫 분석과 재생성이 같은 시간 한도를 공유한다.
+    async with asyncio.timeout(get_settings().analysis_timeout_seconds):
+        for attempt in range(2):
+            if not await _guarded(session, analysis_id, job_id, "stage = 'analyzing'", {}):
+                return None
+            analysis = await run_analysis(segments, intake, answers, law, lang, as_of,
+                                          feedback=feedback, document_claims=claims, confirmed_facts=confirmed)
 
-        if not await _guarded(session, analysis_id, job_id, "stage = 'verifying'", {}):
-            return None
-        failures = await _citation_failures(session, analysis, as_of)
-        if not failures or attempt == 1:
-            break
-        log.info("서류 분석 인용 %d건 검증 실패 → 한 번 재생성", len(failures))
-        feedback = (
-            "Regenerate the complete analysis. The following citations failed verification. "
-            "Use only matching verbatim quotes from the provided legal provisions. "
-            "If a claim cannot be supported, remove it rather than inventing a citation.\n"
-            + "\n".join(failures)
-        )
+            if not await _guarded(session, analysis_id, job_id, "stage = 'verifying'", {}):
+                return None
+            failures = await _citation_failures(session, analysis, as_of)
+            if not failures or attempt == 1:
+                break
+            log.info("서류 분석 인용 %d건 검증 실패 → 한 번 재생성", len(failures))
+            feedback = (
+                "Regenerate the complete analysis. The following citations failed verification. "
+                "Use only matching verbatim quotes from the provided legal provisions. "
+                "If a claim cannot be supported, remove it rather than inventing a citation.\n"
+                + "\n".join(failures)
+            )
 
     result = await _build_result(session, intake, analysis, segments, law, lang, as_of,
                                  unverified_citations=bool(failures))

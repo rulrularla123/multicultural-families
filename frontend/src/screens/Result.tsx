@@ -7,6 +7,31 @@ import LegalTranslation from '../components/LegalTranslation'
 
 const CATEGORY_ORDER: Clause['category'][] = ['must_check', 'caution', 'general']
 
+/** 서류 원문에서 결과가 짚은 문구를 형광펜(<mark>)으로 칠한다. 원문에 없는 문구는 건너뛴다. */
+function HighlightedText({ text, highlights }: { text: string; highlights: string[] }) {
+  const ranges: [number, number][] = []
+  for (const h of highlights) {
+    if (!h) continue
+    let from = 0
+    for (let i = text.indexOf(h, from); i !== -1; i = text.indexOf(h, from)) {
+      ranges.push([i, i + h.length])
+      from = i + h.length
+    }
+  }
+  ranges.sort((a, b) => a[0] - b[0])
+  const parts: React.ReactNode[] = []
+  let pos = 0
+  for (const [start, end] of ranges) {
+    if (end <= pos) continue
+    const s = Math.max(start, pos)
+    if (s > pos) parts.push(text.slice(pos, s))
+    parts.push(<mark key={s}>{text.slice(s, end)}</mark>)
+    pos = end
+  }
+  if (pos < text.length) parts.push(text.slice(pos))
+  return <p className="clause-original">{parts}</p>
+}
+
 export default function Result({ analysis, onChanged }: { analysis: Analysis; onChanged: () => void }) {
   const { t, navigate } = useApp()
   const result = analysis.result
@@ -94,11 +119,12 @@ export default function Result({ analysis, onChanged }: { analysis: Analysis; on
                     ))}
                   </div>
                 )}
-                {(clause.explanation_detail || clause.citations.length > 0) && (
+                {(clause.text || clause.explanation_detail || clause.citations.length > 0) && (
                   <details>
                     <summary>{t('result.clauses.viewOriginal')}</summary>
                     <div className="clause-card__detail">
-                      <p>{clause.explanation_detail}</p>
+                      {clause.text && <HighlightedText text={clause.text} highlights={clause.highlights} />}
+                      {clause.explanation_detail && <p>{clause.explanation_detail}</p>}
                       {clause.citations.map((c, i) => (
                         <div key={i} style={{ marginTop: 8 }}>
                           <button

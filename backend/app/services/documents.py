@@ -293,20 +293,30 @@ async def _analyze(session: AsyncSession, analysis_id: str, job_id: str) -> dict
     original = f"{intake.doc_type_label}. {intake.summary}"
     law = await retrieve(session, queries, original, as_of, None, include_samples=get_settings().include_samples)
 
-    if not await _guarded(session, analysis_id, job_id, "stage = 'analyzing'", {}):
-        return None
-    analysis = await asyncio.wait_for(
-        run_analysis(segments, intake, answers, law, lang, as_of,
-                     document_claims=claims, confirmed_facts=confirmed),
-        timeout=get_settings().analysis_timeout_seconds,
-    )
+    feedback = None
+    # 첫 분석과 재생성이 같은 시간 한도를 공유한다.
+    async with asyncio.timeout(get_settings().analysis_timeout_seconds):
+        for attempt in range(2):
+            if not await _guarded(session, analysis_id, job_id, "stage = 'analyzing'", {}):
+                return None
+            analysis = await run_analysis(segments, intake, answers, law, lang, as_of,
+                                          feedback=feedback, document_claims=claims, confirmed_facts=confirmed)
 
-    if not await _guarded(session, analysis_id, job_id, "stage = 'verifying'", {}):
-        return None
-    failures = await _citation_failures(session, analysis, as_of)
-    if failures:
-        log.info("서류 분석 인용 %d건 검증 실패 → 제외", len(failures))
-    result = await _build_result(session, intake, analysis, segments, law, lang, as_of)
+            if not await _guarded(session, analysis_id, job_id, "stage = 'verifying'", {}):
+                return None
+            failures = await _citation_failures(session, analysis, as_of)
+            if not failures or attempt == 1:
+                break
+            log.info("서류 분석 인용 %d건 검증 실패 → 한 번 재생성", len(failures))
+            feedback = (
+                "Regenerate the complete analysis. The following citations failed verification. "
+                "Use only matching verbatim quotes from the provided legal provisions. "
+                "If a claim cannot be supported, remove it rather than inventing a citation.\n"
+                + "\n".join(failures)
+            )
+
+    result = await _build_result(session, intake, analysis, segments, law, lang, as_of,
+                                 unverified_citations=bool(failures))
     return result | {"document_claims": claims, "confirmed_facts": confirmed, "page_count": r.page_count}
 
 
@@ -325,7 +335,10 @@ async def _citation_failures(session: AsyncSession, a: DocumentAnalysis, as_of) 
     return out
 
 
-async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: list[Segment], law, lang: Lang, as_of):
+async def _build_result(
+    session, intake: Intake, a: DocumentAnalysis, segments: list[Segment], law, lang: Lang, as_of,
+    *, unverified_citations: bool = False,
+):
     cits = _all_citations(a)
     infos = await lookup(session, [c.provision_id for c in cits], as_of)
     paths = dict(
@@ -386,7 +399,7 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
     # 꼭 확인할 조항 대부분에 검증된 근거가 없으면 신뢰도를 낮춘다
     must = [c for c in clauses if c["category"] == "must_check"]
     uncited = sum(not c["citations"] for c in must)
-    confidence = "low" if must and uncited * 2 > len(must) else a.confidence
+    confidence = "low" if unverified_citations or (must and uncited * 2 > len(must)) else a.confidence
     cautions = [
         {"title": c.title, "detail": c.explanation_detail, "explanation": c.explanation_detail,
          "explanation_simple": c.explanation_simple, "explanation_detail": c.explanation_detail, "kind": c.kind,
@@ -397,6 +410,7 @@ async def _build_result(session, intake: Intake, a: DocumentAnalysis, segments: 
     # 근거 법령보다 새 판이 시행 중이면 상담 안내, 최신 판 확인을 못 했으면 공식 원문 대조 안내
     version_key = "law_outdated" if "outdated" in warnings else "law_unchecked" if "unchecked" in warnings else None
     notice = " ".join(x for x in (
+        t("document_citation_unverified", lang) if unverified_citations else None,
         t("low_confidence", lang) if confidence == "low" else None,
         t(version_key, lang) if version_key else None,
     ) if x) or None

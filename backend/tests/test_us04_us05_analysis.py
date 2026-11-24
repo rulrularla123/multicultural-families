@@ -218,8 +218,8 @@ def test_us04_unverifiable_citation_is_not_shown_as_verified(client, svc, monkey
 
 
 @pytest.mark.db
-@pytest.mark.xfail(strict=True, reason="미구현: 서류 분석은 인용 검증 실패 시 재생성 없이 해당 인용만 뺀다 (_analyze)")
-def test_us04_failed_citation_regenerates_analysis_once(client, svc, monkeypatch):
+@pytest.mark.parametrize("second_fails", [False, True])
+def test_us04_failed_citation_regenerates_analysis_once(client, svc, monkeypatch, second_fails):
     """US-04 (LLM): 인용 검증에 실패하면 분석을 한 번 다시 생성한다 (CLAUDE.md 도메인 핵심, US-01과 같은 방식)."""
     real = svc.run_analysis
     calls = []
@@ -227,14 +227,20 @@ def test_us04_failed_citation_regenerates_analysis_once(client, svc, monkeypatch
     async def first_bad(*args, **kwargs):
         calls.append(kwargs)
         a = await real(*args, **kwargs)
-        if len(calls) > 1:
+        if len(calls) > 1 and not second_fails:
             return a
         bad = Citation(provision_id=FAKE_PROVISION, quote_ko="없는 조문의 문장", quote_translation="x")
         return a.model_copy(update={"clauses": [f.model_copy(update={"citations": [bad]}) for f in a.clauses]})
 
     monkeypatch.setattr(svc, "run_analysis", first_bad)
-    _reviewed(client)
+    result = _reviewed(client)["result"]
     assert len(calls) == 2
+    assert not calls[0].get("feedback")
+    assert FAKE_PROVISION in calls[1]["feedback"]
+    assert FAKE_PROVISION not in str(result)
+    assert ("원문 확인 필요" in (result["notice"] or "")) is second_fails
+    if second_fails:
+        assert result["confidence"] == "low" and result["needs_expert"]
 
 
 @pytest.mark.db

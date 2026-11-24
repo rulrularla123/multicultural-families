@@ -191,6 +191,8 @@ async def submit_answers(session: AsyncSession, client_id: str, analysis_id: str
     missing = [q for q in required if q not in answered]
     if missing:
         raise MissingAnswers("Please answer all questions — the analysis is tailored to your answers.", missing)
+    # 자유 입력 답변도 서류 본문과 같이 저장·LLM 전송 전에 식별번호를 가린다 (이전에 저장된 답변으로 재시도할 때도)
+    answers = [{**a, "text": mask(a["text"])[0]} if isinstance(a.get("text"), str) else a for a in answers]
     job_id = uuid.uuid4().hex
     await session.execute(
         text(

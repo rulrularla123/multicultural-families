@@ -189,7 +189,6 @@ def test_us04_format_error_sets_failed_with_message(client, svc, monkeypatch):
 
 
 @pytest.mark.db
-@pytest.mark.xfail(run=False, strict=True, reason="미구현: 서류 분석 LLM 호출에 90초 시간 제한이 없다 (app/services/documents.py)")
 def test_us04_analysis_over_90_seconds_sets_failed(client, svc, monkeypatch):
     """US-04 (실패): 분석이 90초를 넘기면 분석 실패가 된다."""
     async def hang(*args, **kwargs):

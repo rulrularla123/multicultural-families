@@ -293,8 +293,11 @@ async def _analyze(session: AsyncSession, analysis_id: str, job_id: str) -> dict
 
     if not await _guarded(session, analysis_id, job_id, "stage = 'analyzing'", {}):
         return None
-    analysis = await run_analysis(segments, intake, answers, law, lang, as_of,
-                                  document_claims=claims, confirmed_facts=confirmed)
+    analysis = await asyncio.wait_for(
+        run_analysis(segments, intake, answers, law, lang, as_of,
+                     document_claims=claims, confirmed_facts=confirmed),
+        timeout=get_settings().analysis_timeout_seconds,
+    )
 
     if not await _guarded(session, analysis_id, job_id, "stage = 'verifying'", {}):
         return None
